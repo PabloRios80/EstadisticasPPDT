@@ -3,43 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Estadísticas PPDT</title>
+    <title>Dashboard de Salud</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" >
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-100 font-sans">
     <div class="container mx-auto p-8">
-        <h1 class="text-3xl font-bold text-green-700 mb-6">Programa Seguimiento Crónicos PPDT</h1>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div>
-                <label for="selector-campos" class="block text-gray-700 text-sm font-bold mb-2">Seleccionar Campos:</label>
-                <select id="selector-campos" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" multiple>
-                    </select>
-                <button id="agregar-filtro" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mt-2">Seleccionar Variables</button>
+        <h1 class="text-4xl font-extrabold text-green-700 mb-8 text-center">Dashboard de Salud</h1>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
+            <div id="indicador-casos" class="bg-white p-4 rounded-full shadow-md text-center flex items-center justify-center space-x-2">
+                <i class="fas fa-users text-blue-500 text-2xl"></i>
+                <div>
+                    <p class="text-lg text-gray-600">Total de Casos</p>
+                    <p id="total-casos" class="text-3xl font-bold text-blue-800">Cargando...</p>
+                </div>
             </div>
-            <div class="md:col-span-2">
-                <h3 class="text-lg font-semibold text-gray-800 mb-2">Filtros Aplicados:</h3>
-                <div id="filtros-aplicados" class="mb-4">
-                    </div>
+            <div id="indicador-mujeres" class="bg-white p-4 rounded-full shadow-md text-center flex items-center justify-center space-x-2">
+                <i class="fas fa-venus text-pink-500 text-2xl"></i>
+                <div>
+                    <p class="text-lg text-gray-600">Mujeres</p>
+                    <p id="total-mujeres" class="text-3xl font-bold text-pink-800">Cargando...</p>
+                </div>
+            </div>
+            <div id="indicador-varones" class="bg-white p-4 rounded-full shadow-md text-center flex items-center justify-center space-x-2">
+                <i class="fas fa-mars text-blue-500 text-2xl"></i>
+                <div>
+                    <p class="text-lg text-gray-600">Varones</p>
+                    <p id="total-varones" class="text-3xl font-bold text-blue-800">Cargando...</p>
+                </div>
+            </div>
+            <div id="indicador-enfermedades-cronicas" class="bg-white p-4 rounded-full shadow-md text-center flex items-center justify-center space-x-2">
+                <i class="fas fa-heartbeat text-red-500 text-2xl"></i>
+                <div>
+                    <p class="text-lg text-gray-600">Enf. Crónicas</p>
+                    <p id="total-cronicas" class="text-3xl font-bold text-red-800">Cargando...</p>
+                </div>
             </div>
         </div>
-        <div class="mb-4">
-            <label for="combinacion-filtros" class="block text-gray-700 text-sm font-bold mb-2">Combinación de Filtros:</label>
-            <select id="combinacion-filtros" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                <option value="AND" selected>AND (Todas las condiciones deben cumplirse)</option>
-                <option value="OR">OR (Al menos una condición debe cumplirse)</option>
-            </select>
+
+        <div class="flex justify-center space-x-4 mb-8">
+            <button id="mostrar-controles" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline">Mostrar Controles</button>
+            <button id="limpiar-filtros" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline hidden">Limpiar Filtros</button>
         </div>
-        <button id="consultar-grupo-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Consultar</button>
 
-        <h3 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Resultados del Cruce:</h3>
-        <div id="resultados-resumen">
+        <div id="controles-filtros" class="bg-white p-8 rounded-lg shadow-xl mb-8 hidden">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div>
+                    <label for="selector-campos" class="block text-gray-700 text-sm font-bold mb-2">Seleccionar Variables:</label>
+                    <select id="selector-campos" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" multiple></select>
+                    <button id="agregar-filtro" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mt-2">Añadir Filtro</button>
+                </div>
+                <div class="md:col-span-2">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Filtros Aplicados:</h3>
+                    <div id="filtros-aplicados" class="mb-4"></div>
+                </div>
             </div>
+            <button id="aplicar-filtros" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Aplicar Cruce</button>
+        </div>
 
-        <button id="exportar-excel-btn" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mt-4">Exportar a Excel</button>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Grupos de Edad</h3>
+                <canvas id="edad-chart"></canvas>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Casos de Cáncer</h3>
+                <canvas id="cancer-chart"></canvas>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Casos de Infecciosas</h3>
+                <canvas id="infecciosas-chart"></canvas>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-md md:col-span-2 lg:col-span-3">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Casos por Sexo y Enfermedad</h3>
+                <canvas id="sexo-enfermedad-chart"></canvas>
+            </div>
+        </div>
     </div>
-    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script> 
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="estadisticas.js"></script>
 </body>
-</html>  
+</html>

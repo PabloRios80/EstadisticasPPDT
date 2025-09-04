@@ -1,260 +1,263 @@
 document.addEventListener('DOMContentLoaded', () => {
+    let allData = [];
+    let fixedIndicators = {};
+    const chartInstances = {};
+    const indicadoresFijosContainer = document.getElementById('indicadores-fijos-container');
+    const controlesFiltros = document.getElementById('controles-filtros');
+    const mostrarControlesBtn = document.getElementById('mostrar-controles');
+    const limpiarFiltrosBtn = document.getElementById('limpiar-filtros');
     const selectorCampos = document.getElementById('selector-campos');
     const agregarFiltroBtn = document.getElementById('agregar-filtro');
+    const aplicarFiltrosBtn = document.getElementById('aplicar-filtros');
     const filtrosAplicadosDiv = document.getElementById('filtros-aplicados');
-    const consultarGrupoBtn = document.getElementById('consultar-grupo-btn');
-    const resultadosResumenDiv = document.getElementById('resultados-resumen');
-    const exportarExcelBtn = document.getElementById('exportar-excel-btn');
-    const combinacionFiltrosSelect = document.getElementById('combinacion-filtros');
 
-    if (selectorCampos && agregarFiltroBtn && filtrosAplicadosDiv && consultarGrupoBtn && resultadosResumenDiv && exportarExcelBtn && combinacionFiltrosSelect) {
-        cargarCampos();
+    initializeDashboard();
 
-        agregarFiltroBtn.addEventListener('click', agregarNuevoFiltro);
-        consultarGrupoBtn.addEventListener('click', realizarConsultaGrupal);
-        exportarExcelBtn.addEventListener('click', exportarResultados);
-    }
-
-    async function cargarCampos() {
+    async function initializeDashboard() {
         try {
-            const response = await fetch('/obtener-campos');
-            const campos = await response.json();
+            const [dataResponse, indicadoresResponse, camposResponse] = await Promise.all([
+                fetch('/obtener-datos-completos'),
+                fetch('/obtener-indicadores-fijos'),
+                fetch('/obtener-campos')
+            ]);
+            
+            allData = await dataResponse.json();
+            fixedIndicators = await indicadoresResponse.json();
+            const campos = await camposResponse.json();
+
+            // Llenar el selector de campos
             campos.forEach(campo => {
                 const option = document.createElement('option');
                 option.value = campo;
                 option.textContent = campo;
                 selectorCampos.appendChild(option);
             });
+
+            renderFixedIndicators(fixedIndicators);
+            buildDashboard(allData);
+
+            // Event Listeners
+            mostrarControlesBtn.addEventListener('click', () => {
+                controlesFiltros.classList.toggle('hidden');
+                limpiarFiltrosBtn.classList.toggle('hidden');
+            });
+
+            agregarFiltroBtn.addEventListener('click', createFilterUI);
+            aplicarFiltrosBtn.addEventListener('click', applyFiltersAndRenderDashboard);
+            limpiarFiltrosBtn.addEventListener('click', clearFilters);
+
         } catch (error) {
-            console.error('Error al cargar los campos:', error);
+            console.error('Error al iniciar el dashboard:', error);
+            document.body.innerHTML = '<p class="text-red-600 text-center text-xl mt-10">Error al cargar la aplicación. Por favor, reinicia el servidor.</p>';
         }
     }
 
-    function agregarNuevoFiltro() {
+    function renderFixedIndicators(data) {
+        document.getElementById('total-casos').textContent = data.diasPreventivos;
+        document.getElementById('total-mujeres').textContent = `${data.sexo.femenino} (${data.sexo.porcentajeFemenino}%)`;
+        document.getElementById('total-varones').textContent = `${data.sexo.masculino} (${data.sexo.porcentajeMasculino}%)`;
+        const totalEnfCronicas = data.enfermedades.diabetes + data.enfermedades.hipertension + data.enfermedades.dislipemias;
+        document.getElementById('total-cronicas').textContent = totalEnfCronicas;
+    }
+
+    function buildDashboard(data) {
+        Object.values(chartInstances).forEach(chart => chart.destroy());
+
+        createAgeChart(data);
+        createCancerChart(data);
+        createInfectiousChart(data);
+        createSexAndDiseaseChart(data);
+    }
+
+    function createFilterUI() {
         const camposSeleccionados = Array.from(selectorCampos.selectedOptions).map(option => option.value);
-        console.log('Campos seleccionados para filtrar:', camposSeleccionados);
         camposSeleccionados.forEach(campo => {
-            // Verificamos SI NO existe ya un filtro para este campo
-            if (!document.getElementById(`filtro-${campo}`)) {
-                crearInterfazFiltro(campo);
+            if (document.getElementById(`filtro-${campo}`)) return;
+
+            const filtroDiv = document.createElement('div');
+            filtroDiv.id = `filtro-${campo}`;
+            filtroDiv.classList.add('filtro', 'mb-4', 'p-3', 'bg-gray-200', 'rounded-md');
+
+            const labelCampo = document.createElement('label');
+            labelCampo.textContent = `${campo}:`;
+            labelCampo.classList.add('block', 'text-gray-700', 'text-sm', 'font-bold', 'mb-2');
+            filtroDiv.appendChild(labelCampo);
+
+            if (campo === 'Edad') {
+                const inputDesde = document.createElement('input');
+                inputDesde.type = 'number';
+                inputDesde.id = `edad-desde`;
+                inputDesde.placeholder = 'Desde';
+                inputDesde.classList.add('shadow', 'appearance-none', 'border', 'rounded', 'w-full', 'py-2', 'px-3', 'text-gray-700');
+                const inputHasta = document.createElement('input');
+                inputHasta.type = 'number';
+                inputHasta.id = `edad-hasta`;
+                inputHasta.placeholder = 'Hasta';
+                inputHasta.classList.add('shadow', 'appearance-none', 'border', 'rounded', 'w-full', 'py-2', 'px-3', 'text-gray-700');
+                filtroDiv.appendChild(inputDesde);
+                filtroDiv.appendChild(inputHasta);
+            } else {
+                const uniqueOptions = [...new Set(allData.map(row => row[campo]).filter(val => val && val.trim() !== ''))];
+                uniqueOptions.forEach(opcion => {
+                    const checkboxDiv = document.createElement('div');
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.id = `opcion-${campo}-${opcion.replace(/\s+/g, '-')}`;
+                    checkbox.value = opcion;
+                    const labelOpcion = document.createElement('label');
+                    labelOpcion.textContent = opcion;
+                    labelOpcion.setAttribute('for', checkbox.id);
+                    labelOpcion.classList.add('ml-2', 'text-gray-700', 'text-sm');
+                    checkboxDiv.appendChild(checkbox);
+                    checkboxDiv.appendChild(labelOpcion);
+                    filtroDiv.appendChild(checkboxDiv);
+                });
             }
+            filtrosAplicadosDiv.appendChild(filtroDiv);
         });
     }
 
-    async function crearInterfazFiltro(campo) {
-        const filtroExistente = document.getElementById(`filtro-${campo}`);
-        if (filtroExistente) {
-            console.log(`Ya existe un filtro para el campo: ${campo}`);
-            return; // Si ya existe, no creamos uno nuevo
-        }
-
-        const filtroDiv = document.createElement('div');
-        filtroDiv.id = `filtro-${campo}`;
-        filtroDiv.classList.add('filtro', 'mb-4', 'p-3', 'bg-gray-200', 'rounded-md');
-
-        const labelCampo = document.createElement('label');
-        labelCampo.textContent = `${campo}:`;
-        labelCampo.classList.add('block', 'text-gray-700', 'text-sm', 'font-bold', 'mb-2');
-        filtroDiv.appendChild(labelCampo);
-
-        if (campo === 'Edad') {
-            const divRango = document.createElement('div');
-            divRango.classList.add('flex', 'space-x-2', 'mb-2');
-
-            const labelDesde = document.createElement('label');
-            labelDesde.textContent = 'Desde:';
-            labelDesde.classList.add('text-gray-700', 'text-sm', 'font-bold');
-            const inputDesde = document.createElement('input');
-            inputDesde.type = 'number';
-            inputDesde.classList.add('shadow', 'appearance-none', 'border', 'rounded', 'w-full', 'py-2', 'px-3', 'text-gray-700', 'leading-tight', 'focus:outline-none', 'focus:shadow-outline');
-            inputDesde.id = `edad-desde`;
-
-            const labelHasta = document.createElement('label');
-            labelHasta.textContent = 'Hasta:';
-            labelHasta.classList.add('text-gray-700', 'text-sm', 'font-bold');
-            const inputHasta = document.createElement('input');
-            inputHasta.type = 'number';
-            inputHasta.classList.add('shadow', 'appearance-none', 'border', 'rounded', 'w-full', 'py-2', 'px-3', 'text-gray-700', 'leading-tight', 'focus:outline-none', 'focus:shadow-outline');
-            inputHasta.id = `edad-hasta`;
-
-            const aplicarBtn = document.createElement('button');
-            aplicarBtn.textContent = 'Aplicar Rango';
-            aplicarBtn.classList.add('bg-blue-500', 'hover:bg-blue-700', 'text-white', 'font-bold', 'py-2', 'px-4', 'rounded', 'focus:outline-none', 'focus:shadow-outline');
-            aplicarBtn.addEventListener('click', () => {
+    function applyFiltersAndRenderDashboard() {
+        const filters = getFiltersFromUI();
+        const filteredData = allData.filter(row => {
+            if (filters.length === 0) return true;
+            return filters.every(filter => {
+                const valueInRow = row[filter.field];
+                if (filter.field === 'Edad') {
+                    const edad = parseInt(valueInRow, 10);
+                    return (!isNaN(edad) && edad >= filter.value.desde && edad <= filter.value.hasta);
+                } else if (filter.operator === 'in') {
+                    return filter.value.includes(valueInRow);
+                }
+                return false;
+            });
+        });
+        document.getElementById('total-casos').textContent = filteredData.length;
+        buildDashboard(filteredData);
+    }
+    
+    function getFiltersFromUI() {
+        const filters = [];
+        const filterDivs = document.querySelectorAll('#filtros-aplicados > .filtro');
+        filterDivs.forEach(filterDiv => {
+            const field = filterDiv.id.replace('filtro-', '');
+            if (field === 'Edad') {
                 const desde = document.getElementById('edad-desde').value;
                 const hasta = document.getElementById('edad-hasta').value;
-                filtroDiv.dataset.edadDesde = desde;
-                filtroDiv.dataset.edadHasta = hasta;
-                console.log(`Rango de edad aplicado: Desde ${desde} hasta ${hasta}`);
-            });
-
-            divRango.appendChild(labelDesde);
-            divRango.appendChild(inputDesde);
-            divRango.appendChild(labelHasta);
-            divRango.appendChild(inputHasta);
-
-            filtroDiv.appendChild(divRango);
-            filtroDiv.appendChild(aplicarBtn);
-
-            filtrosAplicadosDiv.appendChild(filtroDiv);
-
-        } else {
-            try {
-                const response = await fetch(`/obtener-opciones-campo/${campo}`);
-                const opciones = await response.json();
-
-                if (opciones && opciones.length > 0) {
-                    opciones.forEach(opcion => {
-                        const checkboxDiv = document.createElement('div');
-                        const checkbox = document.createElement('input');
-                        checkbox.type = 'checkbox';
-                        checkbox.id = `opcion-${campo}-${opcion.replace(/\s+/g, '-')}`;
-                        checkbox.value = opcion;
-                        const labelOpcion = document.createElement('label');
-                        labelOpcion.textContent = opcion;
-                        labelOpcion.setAttribute('for', `opcion-${campo}-${opcion.replace(/\s+/g, '-')}`);
-                        labelOpcion.classList.add('ml-2', 'text-gray-700', 'text-sm');
-
-                        checkboxDiv.appendChild(checkbox);
-                        checkboxDiv.appendChild(labelOpcion);
-                        filtroDiv.appendChild(checkboxDiv);
-                    });
-                } else {
-                    const inputTexto = document.createElement('input');
-                    inputTexto.type = 'text';
-                    inputTexto.classList.add('shadow', 'appearance-none', 'border', 'rounded', 'w-full', 'py-2', 'px-3', 'text-gray-700', 'leading-tight', 'focus:outline-none', 'focus:shadow-outline');
-                    filtroDiv.appendChild(inputTexto);
-                }
-                filtrosAplicadosDiv.appendChild(filtroDiv);
-
-            } catch (error) {
-                console.error(`Error al obtener opciones para ${campo}:`, error);
-                const mensajeError = document.createElement('p');
-                mensajeError.textContent = `Error al cargar opciones para ${campo}`;
-                filtroDiv.appendChild(mensajeError);
-                filtrosAplicadosDiv.appendChild(filtroDiv);
-            }
-        }
-    }
-
-    async function realizarConsultaGrupal() {
-        const filtros = obtenerCriteriosDeFiltro();
-        const combinacion = combinacionFiltrosSelect.value;
-        const dataToSend = { conditions: filtros, combinator: combinacion };
-
-        try {
-            const response = await fetch('/consultar-grupo', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dataToSend)
-            });
-            const resultados = await response.json();
-            console.log('Resultados de la consulta grupal:', resultados);
-
-            if (resultados && Array.isArray(resultados.data)) {
-                exportarExcelBtn.data = resultados.data;
-                mostrarResultadosResumen({
-                    total_registros: resultados.total_registros,
-                    conteo_cruce: resultados.conteo_cruce,
-                    criterios_cruce: resultados.criterios_cruce
-                });
-            } else {
-                resultadosResumenDiv.textContent = 'Error: No se recibieron datos detallados para la exportación.';
-                console.error('Error: No se recibieron datos detallados para la exportación:', resultados);
-            }
-
-        } catch (error) {
-            console.error('Error al realizar la consulta grupal:', error);
-        }
-    }
-
-    function obtenerCriteriosDeFiltro() {
-        const filtros = [];
-        const filtrosDivs = document.querySelectorAll('#filtros-aplicados > .filtro');
-        filtrosDivs.forEach(filtroDiv => {
-            const campo = filtroDiv.id.replace('filtro-', '');
-            if (campo === 'Edad') {
-                const desde = filtroDiv.dataset.edadDesde;
-                const hasta = filtroDiv.dataset.edadHasta;
                 if (desde && hasta) {
-                    if (desde === hasta) {
-                        filtros.push({ field: campo, operator: 'equals', value: desde });
-                    } else {
-                        filtros.push({ field: campo, operator: 'greaterThanOrEqual', value: desde });
-                        filtros.push({ field: campo, operator: 'lessThanOrEqual', value: hasta });
-                    }
+                    filters.push({ field, operator: 'range', value: { desde: parseFloat(desde), hasta: parseFloat(hasta) } });
                 }
             } else {
-                const checkboxes = filtroDiv.querySelectorAll('input[type="checkbox"]:checked');
-                const textoInput = filtroDiv.querySelector('input[type="text"]');
-
+                const checkboxes = filterDiv.querySelectorAll('input[type="checkbox"]:checked');
                 if (checkboxes.length > 0) {
-                    const valores = Array.from(checkboxes).map(cb => cb.value);
-                    filtros.push({ field: campo, operator: 'in', value: valores });
-                } else if (textoInput && textoInput.value.trim() !== '') {
-                    filtros.push({ field: campo, operator: 'includes', value: textoInput.value.trim() });
+                    const values = Array.from(checkboxes).map(cb => cb.value);
+                    filters.push({ field, operator: 'in', value: values });
                 }
             }
         });
-        return filtros;
+        return filters;
     }
 
-    function mostrarResultadosResumen(resultados) {
-        resultadosResumenDiv.innerHTML = '';
-
-        if (!resultados || typeof resultados.total_registros === 'undefined' || typeof resultados.conteo_cruce === 'undefined') {
-            resultadosResumenDiv.textContent = 'Error al recibir los resultados del cruce.';
-            console.error('Estructura de resultados inesperada:', resultados);
-            return;
-        }
-
-        const totalRegistros = resultados.total_registros;
-        const conteoCruce = resultados.conteo_cruce;
-        const porcentajeCruce = ((conteoCruce / totalRegistros) * 100).toFixed(2);
-        const criteriosCruce = resultados.criterios_cruce || {};
-
-        const tabla = document.createElement('table');
-        tabla.classList.add('resultados-table');
-
-        const thead = document.createElement('thead');
-        const headerRow = document.createElement('tr');
-        headerRow.innerHTML = `
-            <th>Total Registros</th>
-            <th>Criterios del Cruce</th>
-            <th>Resultado del Cruce (Cantidad)</th>
-            <th>Resultado del Cruce (%)</th>
-        `;
-        thead.appendChild(headerRow);
-        tabla.appendChild(thead);
-
-        const tbody = document.createElement('tbody');
-        const dataRow = document.createElement('tr');
-        dataRow.innerHTML = `
-            <td>${totalRegistros}</td>
-            <td>${Object.entries(criteriosCruce).map(([variable, valor]) => `${variable} = ${valor}`).join('<br>')}</td>
-            <td>${conteoCruce}</td>
-            <td>${porcentajeCruce}%</td>
-        `;
-        tbody.appendChild(dataRow);
-        tabla.appendChild(tbody);
-
-        resultadosResumenDiv.appendChild(tabla);
+    function clearFilters() {
+        filtrosAplicadosDiv.innerHTML = '';
+        buildDashboard(allData);
+        document.getElementById('total-casos').textContent = allData.length;
     }
 
-    function exportarResultados() {
-        const dataParaExportar = exportarExcelBtn.data;
+    function createAgeChart(data) {
+        const counts = {
+            'Menores de 18': data.filter(r => parseInt(r.Edad, 10) < 18).length,
+            '18 a 30': data.filter(r => parseInt(r.Edad, 10) >= 18 && parseInt(r.Edad, 10) <= 30).length,
+            '30 a 50': data.filter(r => parseInt(r.Edad, 10) > 30 && parseInt(r.Edad, 10) <= 50).length,
+            'Mayores de 50': data.filter(r => parseInt(r.Edad, 10) > 50).length,
+        };
+        const ctx = document.getElementById('edad-chart');
+        if (chartInstances['edad-chart']) chartInstances['edad-chart'].destroy();
+        chartInstances['edad-chart'] = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(counts),
+                datasets: [{
+                    label: 'Casos por Grupo de Edad',
+                    data: Object.values(counts),
+                    backgroundColor: ['#42A5F5', '#FF6384', '#FFCE56', '#8e5ea2'],
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
 
-        if (!dataParaExportar || dataParaExportar.length === 0) {
-            alert('No hay datos para exportar.');
-            return;
-        }
-
-        const wb = XLSX.utils.book_new();
-        const ws_data = [Object.keys(dataParaExportar[0])];
-        dataParaExportar.forEach(obj => ws_data.push(Object.values(obj)));
-        const ws = XLSX.utils.aoa_to_sheet(ws_data);
-
-        XLSX.utils.book_append_sheet(wb, ws, "Datos Filtrados");
-        XLSX.writeFile(wb, "datos_filtrados.xlsx");
+    function createCancerChart(data) {
+        const cases = {
+            'Colon': data.filter(r => (r['SOMF'] || '').toLowerCase() === 'positivo' || (r['Cáncer colon - Colonoscopía'] || '').toLowerCase() === 'positivo').length,
+            'Mama': data.filter(r => (r['Cáncer mama - Mamografía'] || '').toLowerCase() === 'positivo').length,
+            'Cérvico Uterino': data.filter(r => (r['Cáncer cérvico uterino - HPV'] || '').toLowerCase() === 'positivo' || (r['Cáncer cérvico uterino - PAP'] || '').toLowerCase() === 'positivo').length,
+        };
+        const ctx = document.getElementById('cancer-chart');
+        if (chartInstances['cancer-chart']) chartInstances['cancer-chart'].destroy();
+        chartInstances['cancer-chart'] = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: Object.keys(cases),
+                datasets: [{
+                    label: 'Casos de Cáncer',
+                    data: Object.values(cases),
+                    backgroundColor: ['#FFCD56', '#FF9F40', '#FF6384'],
+                }]
+            },
+            options: { responsive: true, plugins: { legend: { position: 'top' } } }
+        });
+    }
+    
+    function createInfectiousChart(data) {
+        const cases = {
+            'VIH': data.filter(r => (r['VIH'] || '').toLowerCase() === 'positivo').length,
+            'Hepatitis B': data.filter(r => (r['Hepatitis B'] || '').toLowerCase() === 'positivo').length,
+            'Hepatitis C': data.filter(r => (r['Hepatitis C'] || '').toLowerCase() === 'positivo').length,
+            'Chagas': data.filter(r => (r['Chagas'] || '').toLowerCase() === 'positivo').length,
+        };
+        const ctx = document.getElementById('infecciosas-chart');
+        if (chartInstances['infecciosas-chart']) chartInstances['infecciosas-chart'].destroy();
+        chartInstances['infecciosas-chart'] = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(cases),
+                datasets: [{
+                    label: 'Casos de Enfermedades Infecciosas',
+                    data: Object.values(cases),
+                    backgroundColor: ['#FF5722', '#F44336', '#E91E63', '#9C27B0'],
+                }]
+            },
+            options: {
+                responsive: true, plugins: { legend: { display: false } }
+            }
+        });
+    }
+    
+    function createSexAndDiseaseChart(data) {
+        const cases = {
+            'Diabetes': data.filter(r => (r.Diabetes || '').toLowerCase() === 'presenta').length,
+            'Hipertensión': data.filter(r => (r['Presión Arterial'] || '').toLowerCase().includes('hipertens')).length,
+            'Dislipemias': data.filter(r => (r.Dislipemias || '').toLowerCase() === 'presenta').length,
+            'Fumadores': data.filter(r => (r.Tabaco || '').toLowerCase() === 'fuma').length,
+            'Obesos': data.filter(r => (r.IMC || '').toLowerCase().includes('obesidad')).length,
+        };
+        const ctx = document.getElementById('sexo-enfermedad-chart');
+        if (chartInstances['sexo-enfermedad-chart']) chartInstances['sexo-enfermedad-chart'].destroy();
+        chartInstances['sexo-enfermedad-chart'] = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(cases),
+                datasets: [{
+                    label: 'Casos',
+                    data: Object.values(cases),
+                    backgroundColor: ['#42A5F5', '#FF6384', '#FFCE56', '#FF9F40', '#8e5ea2'],
+                }]
+            },
+            options: { responsive: true, plugins: { legend: { position: 'top' } } }
+        });
     }
 });

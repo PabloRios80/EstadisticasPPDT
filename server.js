@@ -191,13 +191,38 @@ app.get('/obtener-opciones-campo/:campo', async (req, res) => {
         res.status(500).json({ error: 'Error del servidor al obtener opciones' });
     }
 });
-
-app.post('/consultar-grupo', async (req, res) => {
+app.get('/obtener-datos-completos', async (req, res) => {
     try {
         const authClient = await getAuthenticatedClient();
         const sheets = google.sheets({ version: 'v4', auth: authClient });
         const sheetName = 'Integrado';
-        const { conditions, combinator } = req.body;
+
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `${sheetName}!A:AZ`, // Lee desde la columna A hasta la AZ
+        });
+
+        const [headers, ...rows] = response.data.values;
+        const data = rows.map(row => {
+            const obj = {};
+            headers.forEach((header, index) => {
+                obj[header] = row[index];
+            });
+            return obj;
+        });
+
+        res.json(data);
+    } catch (error) {
+        console.error('Error al obtener todos los datos:', error);
+        res.status(500).json({ error: 'Error del servidor al obtener todos los datos' });
+    }
+});
+
+app.get('/obtener-indicadores-fijos', async (req, res) => {
+    try {
+        const authClient = await getAuthenticatedClient();
+        const sheets = google.sheets({ version: 'v4', auth: authClient });
+        const sheetName = 'Integrado';
         
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
@@ -205,72 +230,104 @@ app.post('/consultar-grupo', async (req, res) => {
         });
 
         const [headers, ...rows] = response.data.values;
-        const totalRegistros = rows.length;
-
-        const filteredRows = rows.filter(row => {
-            if (conditions.length === 0) {
-                return true;
-            }
-
-            const checkCondition = (condition) => {
-                const columnIndex = headers.indexOf(condition.field);
-                if (columnIndex === -1) {
-                    return false;
-                }
-                const valueInRow = row[columnIndex];
-
-                switch (condition.operator) {
-                    case 'equals':
-                        return valueInRow === condition.value;
-                    case 'in':
-                        return condition.value.includes(valueInRow);
-                    case 'greaterThanOrEqual':
-                        return parseFloat(valueInRow) >= parseFloat(condition.value);
-                    case 'lessThanOrEqual':
-                        return parseFloat(valueInRow) <= parseFloat(condition.value);
-                    case 'includes':
-                        return valueInRow && valueInRow.toLowerCase().includes(condition.value.toLowerCase());
-                    default:
-                        return false;
-                }
-            };
-
-            if (combinator === 'AND') {
-                return conditions.every(checkCondition);
-            } else if (combinator === 'OR') {
-                return conditions.some(checkCondition);
-            }
-            return false;
+        const data = rows.map(row => {
+            const obj = {};
+            headers.forEach((header, index) => {
+                obj[header] = row[index];
+            });
+            return obj;
         });
 
-        const conteoCruce = filteredRows.length;
+        // --- Lógica de cálculo de indicadores ---
         
-        const criterios_cruce = conditions.reduce((acc, cond) => {
-            let valor = cond.value;
-            if (Array.isArray(valor)) {
-                valor = valor.join(', ');
+        // 1. Día Preventivo (único por DNI)
+        const dniMap = new Map();
+        data.forEach(row => {
+            const dni = row['DNI'];
+            const timestamp = row['Marca temporal'];
+            if (dni && timestamp) {
+                if (!dniMap.has(dni) || dniMap.get(dni)['Marca temporal'] < timestamp) {
+                    dniMap.set(dni, row);
+                }
             }
-            acc[cond.field] = valor;
-            return acc;
-        }, {});
-        
-        const resultados = {
-            data: filteredRows.map(row => {
-                const obj = {};
-                headers.forEach((header, index) => {
-                    obj[header] = row[index] || '';
-                });
-                return obj;
-            }),
-            total_registros: totalRegistros,
-            conteo_cruce: conteoCruce,
-            criterios_cruce: criterios_cruce
+        });
+        const diasPreventivos = dniMap.size;
+
+        // 2. Sexo (Masculino/Femenino)
+        const sexos = {
+            masculino: 0,
+            femenino: 0
+        };
+        dniMap.forEach(row => {
+            const sexo = (row['Sexo'] || '').toLowerCase();
+            if (sexo === 'masculino') sexos.masculino++;
+            if (sexo === 'femenino') sexos.femenino++;
+        });
+        const totalSexo = sexos.masculino + sexos.femenino;
+        const porcentajeMasculino = totalSexo ? ((sexos.masculino / totalSexo) * 100).toFixed(2) : 0;
+        const porcentajeFemenino = totalSexo ? ((sexos.femenino / totalSexo) * 100).toFixed(2) : 0;
+
+        // 3. Edad
+        const edadGrupos = {
+            'Menores de 18': 0,
+            '18 a 30': 0,
+            '30 a 50': 0,
+            'Mayores de 50': 0
+        };
+        dniMap.forEach(row => {
+            const edad = parseInt(row['Edad'], 10);
+            if (!isNaN(edad)) {
+                if (edad < 18) edadGrupos['Menores de 18']++;
+                else if (edad >= 18 && edad <= 30) edadGrupos['18 a 30']++;
+                else if (edad > 30 && edad <= 50) edadGrupos['30 a 50']++;
+                else if (edad > 50) edadGrupos['Mayores de 50']++;
+            }
+        });
+
+        // 4. Enfermedades Crónicas (Diabetes, Hipertensión, Dislipemias, Obesidad, Fumadores)
+        const enfermedades = {
+            diabetes: 0,
+            hipertension: 0,
+            dislipemias: 0,
+            obesos: 0,
+            fumadores: 0
+        };
+        dniMap.forEach(row => {
+            // Diabetes
+            if ((row['Diabetes'] || '').trim().toLowerCase() === 'presenta') enfermedades.diabetes++;
+            
+            // Hipertensión
+            const presion = (row['Presión Arterial'] || '').trim().toLowerCase();
+            if (presion === 'hipertension' || presion === 'hipertensión') enfermedades.hipertension++;
+            
+            // Dislipemias
+            if ((row['Dislipemias'] || '').trim().toLowerCase() === 'presenta') enfermedades.dislipemias++;
+
+            // Fumadores
+            if ((row['Tabaco'] || '').trim().toLowerCase() === 'fuma') enfermedades.fumadores++;
+
+            // Obesidad
+            const imc = (row['IMC'] || '').trim().toLowerCase();
+            if (imc.includes('sobrepeso') || imc.includes('obesidad')) enfermedades.obesos++;
+        });
+
+        // Construye el objeto de resultados
+        const indicadores = {
+            diasPreventivos: diasPreventivos,
+            sexo: {
+                ...sexos,
+                porcentajeMasculino,
+                porcentajeFemenino
+            },
+            edad: edadGrupos,
+            enfermedades: enfermedades
         };
 
-        res.json(resultados);
+        res.json(indicadores);
+
     } catch (error) {
-        console.error('Error al realizar la consulta:', error);
-        res.status(500).json({ error: 'Error del servidor al realizar la consulta' });
+        console.error('Error al obtener los indicadores fijos:', error);
+        res.status(500).json({ error: 'Error del servidor al obtener los indicadores.' });
     }
 });
 
