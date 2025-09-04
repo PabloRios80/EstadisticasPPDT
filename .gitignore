@@ -1,0 +1,9 @@
+# Carpetas de dependencias de Node
+node_modules/
+
+# Archivos de credenciales y tokens
+token.json
+.env
+
+# Archivos de logs
+*.log

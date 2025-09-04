@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estadísticas PPDT</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" >
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-8">
+        <h1 class="text-3xl font-bold text-green-700 mb-6">Programa Seguimiento Crónicos PPDT</h1>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+                <label for="selector-campos" class="block text-gray-700 text-sm font-bold mb-2">Seleccionar Campos:</label>
+                <select id="selector-campos" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" multiple>
+                    </select>
+                <button id="agregar-filtro" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mt-2">Seleccionar Variables</button>
+            </div>
+            <div class="md:col-span-2">
+                <h3 class="text-lg font-semibold text-gray-800 mb-2">Filtros Aplicados:</h3>
+                <div id="filtros-aplicados" class="mb-4">
+                    </div>
+            </div>
+        </div>
+        <div class="mb-4">
+            <label for="combinacion-filtros" class="block text-gray-700 text-sm font-bold mb-2">Combinación de Filtros:</label>
+            <select id="combinacion-filtros" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                <option value="AND" selected>AND (Todas las condiciones deben cumplirse)</option>
+                <option value="OR">OR (Al menos una condición debe cumplirse)</option>
+            </select>
+        </div>
+        <button id="consultar-grupo-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Consultar</button>
+
+        <h3 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Resultados del Cruce:</h3>
+        <div id="resultados-resumen">
+            </div>
+
+        <button id="exportar-excel-btn" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mt-4">Exportar a Excel</button>
+    </div>
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script> 
+    <script src="estadisticas.js"></script>
+</body>
+</html>  
