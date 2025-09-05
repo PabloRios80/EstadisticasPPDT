@@ -1,25 +1,16 @@
 require('dotenv').config();
-// Importar las librerías necesarias
 const express = require('express');
 const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs');
-
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-// --- Configuración de OAuth 2.0 ---
-// Con estas líneas
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
-const REDIRECT_URI = 'http://localhost:3000/oauth2callback'; 
-
+const REDIRECT_URI = 'http://localhost:3000/oauth2callback';
 const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
-
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly'];
-
-// --- Gestión de Tokens (Almacenamiento y Carga) ---
 const TOKEN_PATH = path.join(__dirname, 'token.json');
 
 async function loadTokens() {
@@ -39,13 +30,19 @@ function saveTokens(tokens) {
     console.log('Tokens guardados en token.json.');
 }
 
-// --- Rutas del Servidor ---
+// Configuración para servir la página de inicio
 app.use(express.static(path.join(__dirname, 'public'), { index: 'estadisticas.html' }));
 app.use(express.json());
 
+// Función para normalizar cadenas (eliminar acentos y convertir a minúsculas)
+function normalizeString(str) {
+    if (!str) return '';
+    return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+}
+
 app.get('/auth', (req, res) => {
     const authUrl = oauth2Client.generateAuthUrl({
-        access_type: 'offline', 
+        access_type: 'offline',
         scope: SCOPES,
         prompt: 'consent',
     });
@@ -79,64 +76,7 @@ app.get('/obtener-campos', async (req, res) => {
         const sheetName = 'Integrado';
 
         const camposAExcluir = [
-            'Dia', 
-            'ID', 
-            'Marca temporal',
-            'FECHAX',
-            'Observaciones - Dislipemias',
-            'Observaciones - Diabetes',
-            'Observaciones - Presión Arterial',
-            'Observaciones - IMC',
-            'Observaciones - Agudeza visual',
-            'Valor CPO',
-            'Observaciones - Control odontológico',
-            'Observaciones - Alimentación saludable',
-            'Observaciones - Actividad física',
-            'Observaciones - Seguridad vial',
-            'Observaciones - Caídas en adultos mayores',
-            'Observaciones - Ácido fólico',
-            'Observaciones - Abuso alcohol',
-            'Observaciones - Tabaco',
-            'Observaciones - Violencia',
-            'Observaciones - Depresión',
-            'Observaciones - ITS',
-            'Observaciones - Hepatitis B',
-            'Observaciones - Hepatitis C',
-            'Observaciones - VIH',
-            'Observaciones - HPV',
-            'Observaciones - PAP',
-            'Observaciones - SOMF',
-            'Observaciones - Colonoscopía',
-            'Observaciones - Mamografía',
-            'Observaciones - ERC',
-            'Observaciones - EPOC',
-            'Observaciones - Aneurisma aorta',
-            'Observaciones - Osteoporosis',
-            'Observaciones - Riesgo CV',
-            'Observaciones - Aspirina',
-            'Observaciones - Inmunizaciones',
-            'Observaciones - VDRL',
-            'Observaciones - PSA',
-            'Observaciones - Chagas',
-            'Observaciones - Examen Físico',
-            'Observaciones - Talla',
-            'Observaciones - Salud Ocular',
-            'Observaciones - Audición',
-            'Observaciones - Salud Cardiovascular',
-            'Observaciones - Educación sexual',
-            'Observaciones - Salud Mental',
-            'Observaciones - Consumo de sustancias',
-            'Observaciones - Dislipemia',
-            'Observaciones - Síndrome Metabólico',
-            'Observaciones - Escoliosis',
-            'Observaciones - Cáncer cérvico uterino',
-            'Observaciones - Cáncer de piel',
-            'Observaciones - Desarrollo escolar',
-            'Observaciones - Uso de pantallas',
-            'Observaciones - Vacunas',
-            'Observaciones - Control Odontológico',
-            'link'
-    // ... añade todos los campos de 'Observaciones' que desees excluir
+            'Dia', 'ID', 'Marca temporal', 'FECHAX', 'Observaciones - Dislipemias', 'Observaciones - Diabetes', 'Observaciones - Presión Arterial', 'Observaciones - IMC', 'Observaciones - Agudeza visual', 'Valor CPO', 'Observaciones - Control odontológico', 'Observaciones - Alimentación saludable', 'Observaciones - Actividad física', 'Observaciones - Seguridad vial', 'Observaciones - Caídas en adultos mayores', 'Observaciones - Ácido fólico', 'Observaciones - Abuso alcohol', 'Observaciones - Tabaco', 'Observaciones - Violencia', 'Observaciones - Depresión', 'Observaciones - ITS', 'Observaciones - Hepatitis B', 'Observaciones - Hepatitis C', 'Observaciones - VIH', 'Observaciones - HPV', 'Observaciones - PAP', 'Observaciones - SOMF', 'Observaciones - Colonoscopía', 'Observaciones - Mamografía', 'Observaciones - ERC', 'Observaciones - EPOC', 'Observaciones - Aneurisma aorta', 'Observaciones - Osteoporosis', 'Observaciones - Riesgo CV', 'Observaciones - Aspirina', 'Observaciones - Inmunizaciones', 'Observaciones - VDRL', 'Observaciones - PSA', 'Observaciones - Chagas', 'Observaciones - Examen Físico', 'Observaciones - Talla', 'Observaciones - Salud Ocular', 'Observaciones - Audición', 'Observaciones - Salud Cardiovascular', 'Observaciones - Educación sexual', 'Observaciones - Salud Mental', 'Observaciones - Consumo de sustancias', 'Observaciones - Dislipemia', 'Observaciones - Síndrome Metabólico', 'Observaciones - Escoliosis', 'Observaciones - Cáncer cérvico uterino', 'Observaciones - Cáncer de piel', 'Observaciones - Desarrollo escolar', 'Observaciones - Uso de pantallas', 'Observaciones - Vacunas', 'Observaciones - Control Odontológico', 'link'
         ];
 
         const response = await sheets.spreadsheets.values.get({
@@ -181,7 +121,6 @@ app.get('/obtener-opciones-campo/:campo', async (req, res) => {
             range: columnRange,
         });
 
-        // Obtiene todos los valores de la columna, excluyendo el primer elemento (el encabezado)
         const columnValues = valuesResponse.data.values ? valuesResponse.data.values.slice(1).flat() : [];
         const uniqueValues = [...new Set(columnValues.filter(val => val && val.trim() !== ''))];
 
@@ -191,39 +130,12 @@ app.get('/obtener-opciones-campo/:campo', async (req, res) => {
         res.status(500).json({ error: 'Error del servidor al obtener opciones' });
     }
 });
+
 app.get('/obtener-datos-completos', async (req, res) => {
     try {
         const authClient = await getAuthenticatedClient();
         const sheets = google.sheets({ version: 'v4', auth: authClient });
         const sheetName = 'Integrado';
-
-        const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: SPREADSHEET_ID,
-            range: `${sheetName}!A:AZ`, // Lee desde la columna A hasta la AZ
-        });
-
-        const [headers, ...rows] = response.data.values;
-        const data = rows.map(row => {
-            const obj = {};
-            headers.forEach((header, index) => {
-                obj[header] = row[index];
-            });
-            return obj;
-        });
-
-        res.json(data);
-    } catch (error) {
-        console.error('Error al obtener todos los datos:', error);
-        res.status(500).json({ error: 'Error del servidor al obtener todos los datos' });
-    }
-});
-
-app.get('/obtener-indicadores-fijos', async (req, res) => {
-    try {
-        const authClient = await getAuthenticatedClient();
-        const sheets = google.sheets({ version: 'v4', auth: authClient });
-        const sheetName = 'Integrado';
-        
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
             range: `${sheetName}!A:AZ`,
@@ -238,11 +150,41 @@ app.get('/obtener-indicadores-fijos', async (req, res) => {
             return obj;
         });
 
-        // --- Lógica de cálculo de indicadores ---
-        
-        // 1. Día Preventivo (único por DNI)
+        const tipo = req.query.tipo;
+        const filteredData = tipo ? data.filter(row => normalizeString(row['Dia']) === normalizeString(tipo)) : data;
+
+        res.json(filteredData);
+    } catch (error) {
+        console.error('Error al obtener todos los datos:', error);
+        res.status(500).json({ error: 'Error del servidor al obtener todos los datos' });
+    }
+});
+
+app.get('/obtener-indicadores-fijos', async (req, res) => {
+    try {
+        const authClient = await getAuthenticatedClient();
+        const sheets = google.sheets({ version: 'v4', auth: authClient });
+        const sheetName = 'Integrado';
+
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `${sheetName}!A:AZ`,
+        });
+
+        const [headers, ...rows] = response.data.values;
+        const data = rows.map(row => {
+            const obj = {};
+            headers.forEach((header, index) => {
+                obj[header] = row[index];
+            });
+            return obj;
+        });
+
+        const tipo = req.query.tipo;
+        const dataParaCalculo = tipo ? data.filter(row => normalizeString(row['Dia']) === normalizeString(tipo)) : data;
+
         const dniMap = new Map();
-        data.forEach(row => {
+        dataParaCalculo.forEach(row => {
             const dni = row['DNI'];
             const timestamp = row['Marca temporal'];
             if (dni && timestamp) {
@@ -253,11 +195,7 @@ app.get('/obtener-indicadores-fijos', async (req, res) => {
         });
         const diasPreventivos = dniMap.size;
 
-        // 2. Sexo (Masculino/Femenino)
-        const sexos = {
-            masculino: 0,
-            femenino: 0
-        };
+        const sexos = { masculino: 0, femenino: 0 };
         dniMap.forEach(row => {
             const sexo = (row['Sexo'] || '').toLowerCase();
             if (sexo === 'masculino') sexos.masculino++;
@@ -267,12 +205,8 @@ app.get('/obtener-indicadores-fijos', async (req, res) => {
         const porcentajeMasculino = totalSexo ? ((sexos.masculino / totalSexo) * 100).toFixed(2) : 0;
         const porcentajeFemenino = totalSexo ? ((sexos.femenino / totalSexo) * 100).toFixed(2) : 0;
 
-        // 3. Edad
         const edadGrupos = {
-            'Menores de 18': 0,
-            '18 a 30': 0,
-            '30 a 50': 0,
-            'Mayores de 50': 0
+            'Menores de 18': 0, '18 a 30': 0, '30 a 50': 0, 'Mayores de 50': 0
         };
         dniMap.forEach(row => {
             const edad = parseInt(row['Edad'], 10);
@@ -284,34 +218,39 @@ app.get('/obtener-indicadores-fijos', async (req, res) => {
             }
         });
 
-        // 4. Enfermedades Crónicas (Diabetes, Hipertensión, Dislipemias, Obesidad, Fumadores)
         const enfermedades = {
-            diabetes: 0,
-            hipertension: 0,
-            dislipemias: 0,
-            obesos: 0,
-            fumadores: 0
+            diabetes: 0, hipertension: 0, dislipemias: 0, obesos: 0, fumadores: 0
         };
         dniMap.forEach(row => {
-            // Diabetes
             if ((row['Diabetes'] || '').trim().toLowerCase() === 'presenta') enfermedades.diabetes++;
-            
-            // Hipertensión
             const presion = (row['Presión Arterial'] || '').trim().toLowerCase();
-            if (presion === 'hipertension' || presion === 'hipertensión') enfermedades.hipertension++;
-            
-            // Dislipemias
+            if (presion.includes('hipertens')) enfermedades.hipertension++;
             if ((row['Dislipemias'] || '').trim().toLowerCase() === 'presenta') enfermedades.dislipemias++;
-
-            // Fumadores
             if ((row['Tabaco'] || '').trim().toLowerCase() === 'fuma') enfermedades.fumadores++;
-
-            // Obesidad
             const imc = (row['IMC'] || '').trim().toLowerCase();
             if (imc.includes('sobrepeso') || imc.includes('obesidad')) enfermedades.obesos++;
         });
 
-        // Construye el objeto de resultados
+        let altoRiesgoCount = 0;
+        dniMap.forEach(row => {
+            const edad = parseInt(row['Edad'], 10);
+            const diabetes = (row['Diabetes'] || '').trim().toLowerCase();
+            const presion = (row['Presión Arterial'] || '').trim().toLowerCase();
+            const imc = (row['IMC'] || '').trim().toLowerCase();
+            const tabaco = (row['Tabaco'] || '').trim().toLowerCase();
+            
+            const isAltoRiesgo = 
+                edad > 50 &&
+                (diabetes === 'presenta' ||
+                presion.includes('hipertens') ||
+                imc.includes('sobrepeso') || imc.includes('obesidad') ||
+                tabaco === 'fuma');
+            
+            if (isAltoRiesgo) {
+                altoRiesgoCount++;
+            }
+        });
+        
         const indicadores = {
             diasPreventivos: diasPreventivos,
             sexo: {
@@ -320,9 +259,9 @@ app.get('/obtener-indicadores-fijos', async (req, res) => {
                 porcentajeFemenino
             },
             edad: edadGrupos,
-            enfermedades: enfermedades
+            enfermedades: enfermedades,
+            altoRiesgo: altoRiesgoCount
         };
-
         res.json(indicadores);
 
     } catch (error) {
