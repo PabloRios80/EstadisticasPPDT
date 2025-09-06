@@ -6,9 +6,15 @@ document.addEventListener('DOMContentLoaded', () => {
             color: "red-600",
             subtopics: [
                 { name: "Diabetes", column: "Diabetes", value: "Presenta" },
-                { name: "Presión Arterial", column: "Presión Arterial", value: "Hipertensión" },
+                { name: "Presión Arterial", column: "Presión Arterial", value: "Hipertension", normalized: true },
                 { name: "Dislipemias", column: "Dislipemias", value: "Presenta" },
-                { name: "IMC", column: "IMC", value: ["Sobrepeso", "Obesidad", "Obesidad Morbida"] },
+                { 
+                    name: "IMC", 
+                    subtopics: [
+                        { name: "Sobrepeso", column: "IMC", value: "Sobrepeso" },
+                        { name: "Obesidad", column: "IMC", value: ["Obesidad", "Obesidad Morbida"] }
+                    ]
+                },
                 { name: "Tabaquismo", column: "Tabaco", value: "Fuma" }
             ]
         },
@@ -17,10 +23,16 @@ document.addEventListener('DOMContentLoaded', () => {
             icon: "ribbon",
             color: "purple-600",
             subtopics: [
-                { name: "Cáncer de Mama", column: "Cáncer mama - Mamografía", value: "Positivo" },
-                { name: "Cáncer Cervicouterino", column: "Cáncer cérvico uterino - PAP", value: "Positivo" },
-                { name: "Cáncer de Colon", column: "Cáncer colon - Colonoscopía", value: "Positivo" },
-                { name: "Cáncer de Próstata", column: "Próstata - PSA", value: "Positivo" }
+                { 
+                    name: "Cáncer de Mama", 
+                    subtopics: [
+                        { name: "mamografía", column: "Cáncer mama - Mamografía", value: "Patologico", parentesis: "detectados por mamografía" },
+                        { name: "ecografía", column: "Cáncer mama - Ecografía", value: "Patologico", parentesis: "detectados por ecografía", fixedCount: 0 }
+                    ]
+                },
+                { name: "Cáncer Cervicouterino", type: "multi-or", value: "Patologico", columns: ["Cáncer cérvico uterino - HPV", "Cáncer cérvico uterino - PAP"] },
+                { name: "Cáncer de Colon", type: "multi-or", value: "Patologico", columns: ["SOMF", "Cáncer colon - Colonoscopía"] },
+                { name: "Cáncer de Próstata", column: "Próstata - PSA", value: "Patologico" }
             ]
         },
         {
@@ -59,6 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalTitulo = document.getElementById('modal-titulo');
     const modalContenido = document.getElementById('modal-contenido');
     const cerrarModalBtn = document.getElementById('cerrar-modal');
+    const fechaActualizacionSpan = document.getElementById('fecha-actualizacion');
 
     const controlesFiltros = document.getElementById('controles-filtros');
     const capitulosSalud = document.getElementById('capitulos-salud');
@@ -104,7 +117,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return NaN;
     }
 
+    function updateDate() {
+        const today = new Date();
+        const options = { year: 'numeric', month: 'long', day: 'numeric' };
+        fechaActualizacionSpan.textContent = `Datos actualizados a ${today.toLocaleDateString('es-ES', options)}`;
+    }
+
     async function initializeDashboard() {
+        updateDate();
         await fetchDataAndSetButtonState('Adultos');
 
         filtroAdultosBtn.addEventListener('click', () => {
@@ -122,6 +142,10 @@ document.addEventListener('DOMContentLoaded', () => {
             capitulosSalud.classList.add('hidden');
             dashboardGraficos.classList.remove('hidden');
             limpiarFiltrosBtn.classList.remove('hidden');
+            mostrarControlesBtn.classList.remove('bg-gray-300', 'hover:bg-gray-400', 'text-gray-800');
+            mostrarControlesBtn.classList.add('bg-blue-600', 'text-white');
+            mostrarCapitulosBtn.classList.remove('bg-blue-600', 'text-white');
+            mostrarCapitulosBtn.classList.add('bg-gray-300', 'hover:bg-gray-400', 'text-gray-800');
         });
 
         mostrarCapitulosBtn.addEventListener('click', () => {
@@ -129,6 +153,10 @@ document.addEventListener('DOMContentLoaded', () => {
             capitulosSalud.classList.remove('hidden');
             dashboardGraficos.classList.add('hidden');
             limpiarFiltrosBtn.classList.remove('hidden');
+            mostrarCapitulosBtn.classList.remove('bg-gray-300', 'hover:bg-gray-400', 'text-gray-800');
+            mostrarCapitulosBtn.classList.add('bg-blue-600', 'text-white');
+            mostrarControlesBtn.classList.remove('bg-blue-600', 'text-white');
+            mostrarControlesBtn.classList.add('bg-gray-300', 'hover:bg-gray-400', 'text-gray-800');
         });
         
         limpiarFiltrosBtn.addEventListener('click', clearFilters);
@@ -319,47 +347,80 @@ document.addEventListener('DOMContentLoaded', () => {
         menuContainer.innerHTML = '';
         IAPOS_PREVENTIVE_PROGRAM_MENU.forEach(category => {
             const categoryDiv = document.createElement('div');
-            categoryDiv.classList.add('bg-white', 'p-6', 'rounded-lg', 'shadow-md', 'mb-6');
+            categoryDiv.classList.add('bg-gray-100', 'p-6', 'rounded-lg', 'mb-6', `category-container-shadow-${category.color.split('-')[0]}`);
             categoryDiv.innerHTML = `
                 <div class="flex items-center space-x-4 mb-4">
                     <i class="fas fa-${category.icon} text-${category.color} text-2xl"></i>
                     <h3 class="text-xl font-semibold text-gray-800">${category.category}</h3>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    ${category.subtopics.map(subtopic => `
-                        <div class="subtopic bg-gray-100 p-4 rounded-lg cursor-pointer hover:bg-gray-200 transition" data-column="${subtopic.column}">
-                            <p class="font-medium text-gray-700">${subtopic.name}</p>
-                            <p class="text-sm text-gray-500 mt-1">Casos: <span id="casos-${subtopic.column.replace(/\s+/g, '-')}" class="font-bold text-gray-800">0</span></p>
-                        </div>
-                    `).join('')}
+                    ${category.subtopics.map(subtopic => {
+                        // Lógica para el subtema de IMC
+                        if (subtopic.name === "IMC") {
+                            const sobrepesoCount = allData.filter(row => (row[subtopic.subtopics[0].column] || '').toLowerCase() === subtopic.subtopics[0].value.toLowerCase()).length;
+                            const obesidadCount = allData.filter(row => Array.isArray(subtopic.subtopics[1].value) && subtopic.subtopics[1].value.some(val => (row[subtopic.subtopics[1].column] || '').toLowerCase().includes(val.toLowerCase()))).length;
+                            const totalIMC = sobrepesoCount + obesidadCount;
+                            return `
+                                <div class="subtopic bg-white p-4 rounded-lg border border-gray-300">
+                                    <p class="font-medium text-gray-700">${subtopic.name}</p>
+                                    <p class="text-sm text-gray-500 mt-1">Sobrepeso: <span class="font-bold text-gray-800">${sobrepesoCount}</span></p>
+                                    <p class="text-sm text-gray-500 mt-1">Obesidad: <span class="font-bold text-gray-800">${obesidadCount}</span></p>
+                                    <p class="text-sm text-gray-500 mt-1 font-bold">Total: <span class="font-bold text-gray-800">${totalIMC}</span></p>
+                                </div>
+                            `;
+                        }
+                        
+                        // Lógica para el subtema de Cáncer de Mama
+                        if (subtopic.name === "Cáncer de Mama") {
+                            const mamografiaCount = allData.filter(row => (row[subtopic.subtopics[0].column] || '').toLowerCase() === subtopic.subtopics[0].value.toLowerCase()).length;
+                            const ecografiaCount = subtopic.subtopics[1].fixedCount;
+                            return `
+                                <div class="subtopic bg-white p-4 rounded-lg border border-gray-300">
+                                    <p class="font-medium text-gray-700">${subtopic.name}</p>
+                                    <p class="text-sm text-gray-500 mt-1">Casos <span class="text-xs text-gray-400">(${subtopic.subtopics[0].parentesis})</span>: <span class="font-bold text-gray-800">${mamografiaCount}</span></p>
+                                    <p class="text-sm text-gray-500 mt-1">Casos <span class="text-xs text-gray-400">(${subtopic.subtopics[1].parentesis})</span>: <span class="font-bold text-gray-800">${ecografiaCount}</span></p>
+                                </div>
+                            `;
+                        }
+                        
+                        // Lógica para el resto de subtemas
+                        let count = 0;
+                        if (subtopic.type === 'multi-or') {
+                            const uniqueDNI = new Set();
+                            subtopic.columns.forEach(col => {
+                                allData.filter(row => (row[col] || '').toLowerCase() === subtopic.value.toLowerCase()).forEach(row => {
+                                    if(row.DNI) uniqueDNI.add(row.DNI);
+                                });
+                            });
+                            count = uniqueDNI.size;
+                        } else if (subtopic.normalized) {
+                            const normalizeString = (str) => str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+                            count = allData.filter(row => normalizeString(row[subtopic.column]).includes(normalizeString(subtopic.value))).length;
+                        } else if (Array.isArray(subtopic.value)) {
+                            count = allData.filter(row => Array.isArray(subtopic.value) && subtopic.value.some(val => (row[subtopic.column] || '').toLowerCase().includes(val.toLowerCase()))).length;
+                        } else {
+                            count = allData.filter(row => (row[subtopic.column] || '').toLowerCase() === subtopic.value.toLowerCase()).length;
+                        }
+
+                        const parentesisHtml = subtopic.parentesis ? `<span class="text-xs text-gray-400">(${subtopic.parentesis})</span>` : '';
+                        
+                        return `
+                            <div class="subtopic bg-white p-4 rounded-lg border border-gray-300">
+                                <p class="font-medium text-gray-700">${subtopic.name} ${parentesisHtml}</p>
+                                <p class="text-sm text-gray-500 mt-1">Casos: <span class="font-bold text-gray-800">${count}</span></p>
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
             `;
             menuContainer.appendChild(categoryDiv);
-        });
-
-        document.querySelectorAll('.subtopic').forEach(subtopicEl => {
-            subtopicEl.addEventListener('click', () => {
-                const column = subtopicEl.dataset.column;
-                const subtopic = IAPOS_PREVENTIVE_PROGRAM_MENU.flatMap(cat => cat.subtopics).find(sub => sub.column === column);
-                if (!subtopic) return;
-
-                const count = allData.filter(row => {
-                    const valueInRow = (row[column] || '').trim().toLowerCase();
-                    if (Array.isArray(subtopic.value)) {
-                        return subtopic.value.some(val => valueInRow.includes(val.toLowerCase()));
-                    }
-                    return valueInRow === subtopic.value.toLowerCase();
-                }).length;
-                
-                document.getElementById(`casos-${column.replace(/\s+/g, '-')}`).textContent = count;
-            });
         });
     }
 
     function createAgeChart(data) {
         if (!data || data.length === 0) return;
         const counts = {
-            'Menores de 18': data.filter(r => r.Edad < 18).length,
+            'Menores de 18': data.filter(r => r.Edad < 18 && r.Edad > 0).length,
             '18 a 30': data.filter(r => r.Edad >= 18 && r.Edad <= 30).length,
             '30 a 50': data.filter(r => r.Edad > 30 && r.Edad <= 50).length,
             'Mayores de 50': data.filter(r => r.Edad > 50).length,
@@ -386,9 +447,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function createCancerChart(data) {
         if (!data || data.length === 0) return;
         const cases = {
-            'Colon': data.filter(r => (r['SOMF'] || '').toLowerCase() === 'positivo' || (r['Cáncer colon - Colonoscopía'] || '').toLowerCase() === 'positivo').length,
-            'Mama': data.filter(r => (r['Cáncer mama - Mamografía'] || '').toLowerCase() === 'positivo').length,
-            'Cérvico Uterino': data.filter(r => (r['Cáncer cérvico uterino - HPV'] || '').toLowerCase() === 'positivo' || (r['Cáncer cérvico uterino - PAP'] || '').toLowerCase() === 'positivo').length,
+            'Colon': data.filter(r => (r['SOMF'] || '').toLowerCase() === 'patologico' || (r['Cáncer colon - Colonoscopía'] || '').toLowerCase() === 'patologico').length,
+            'Mama': data.filter(r => (r['Cáncer mama - Mamografía'] || '').toLowerCase() === 'patologico').length,
+            'Cérvico Uterino': data.filter(r => (r['Cáncer cérvico uterino - HPV'] || '').toLowerCase() === 'patologico' || (r['Cáncer cérvico uterino - PAP'] || '').toLowerCase() === 'patologico').length,
         };
         const ctx = document.getElementById('cancer-chart');
         if (chartInstances['cancer-chart']) chartInstances['cancer-chart'].destroy();

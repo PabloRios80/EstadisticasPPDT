@@ -7,9 +7,27 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        .category-container-shadow-red {
+            border-left: 8px solid #EF4444; /* Rojo */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .category-container-shadow-purple {
+            border-left: 8px solid #A855F7; /* Púrpura */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .category-container-shadow-green {
+            border-left: 8px solid #10B981; /* Verde */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .category-container-shadow-teal {
+            border-left: 8px solid #14B8A6; /* Teal */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+    </style>
 </head>
 <body class="bg-gray-50 font-sans">
-    <header class="bg-blue-600 text-white shadow-lg">
+    <header class="bg-blue-600 text-white shadow-lg relative">
         <div class="container mx-auto px-4 py-4">
             <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
                 <div class="flex items-center space-x-4">
@@ -20,6 +38,9 @@
                 </div>
             </div>
         </div>
+        <div class="absolute top-4 right-4 bg-white text-gray-800 text-sm font-semibold py-2 px-4 rounded-full shadow-md">
+            <span id="fecha-actualizacion"></span>
+        </div>
     </header>
 
     <div class="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-4 mb-8 mt-8">
@@ -29,7 +50,7 @@
         </div>
         <div class="flex space-x-4">
             <button id="mostrar-controles" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline">Mostrar Cruces</button>
-            <button id="mostrar-capitulos" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline">Capítulos de Salud</button>
+            <button id="mostrar-capitulos" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline">Capítulos de Salud</button>
             <button id="limpiar-filtros" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline hidden">Limpiar Filtros</button>
         </div>
     </div>
@@ -89,12 +110,12 @@
             <button id="aplicar-filtros" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Aplicar Cruce</button>
         </div>
 
-        <div id="capitulos-salud" class="bg-white p-8 rounded-lg shadow-xl mb-8 hidden">
+        <div id="capitulos-salud" class="bg-white p-8 rounded-lg shadow-xl mb-8">
             <h2 class="text-2xl font-bold mb-4">Capítulos de Salud</h2>
             <div id="menu-container" class="space-y-6"></div>
         </div>
 
-        <div id="dashboard-graficos" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div id="dashboard-graficos" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 hidden">
             <div class="bg-white p-6 rounded-lg shadow-md">
                 <h3 class="text-lg font-semibold text-gray-800 mb-4">Grupos de Edad</h3>
                 <canvas id="edad-chart"></canvas>
