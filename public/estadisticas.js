@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     name: "Cáncer de Mama", 
                     subtopics: [
                         { name: "mamografía", column: "Cáncer mama - Mamografía", value: "Patologico", parentesis: "detectados por mamografía" },
-                        { name: "ecografía", column: "Cáncer mama - Ecografía", value: "Patologico", parentesis: "detectados por ecografía", fixedCount: 0 }
+                        { name: "ecografía", column: "Cancer_mama_Eco_mamaria", value: "Patologico", parentesis: "detectados por ecografía", fixedCount: 0 }
                     ]
                 },
                 { name: "Cáncer Cervicouterino", type: "multi-or", value: "Patologico", columns: ["Cáncer cérvico uterino - HPV", "Cáncer cérvico uterino - PAP"] },
@@ -52,14 +52,14 @@ document.addEventListener('DOMContentLoaded', () => {
             icon: "plus",
             color: "teal-600",
             subtopics: [
-                { name: "Salud Bucal", column: "Control Odontológico", value: "Control Odontológico" },
-                { name: "Salud Renal", column: "ERC", value: "Presenta" },
-                { name: "Agudeza Visual", column: "Agudeza visual", value: "Presenta" },
-                { name: "EPOC", column: "EPOC", value: "Presenta" },
-                { name: "Aneurisma de Aorta", column: "Aneurisma aorta", value: "Presenta" },
-                { name: "Osteoporosis", column: "Osteoporosis", value: "Presenta" },
-                { name: "Uso de Aspirina", column: "Aspirina", value: "Presenta" },
-                { name: "Salud Mental", column: "Depresión", value: "Presenta" }
+                { name: "Salud Bucal", column: "Control Odontológico", value: "Riesgo Alto" },
+                { name: "Salud Renal", column: "ERC", value: "Patológico" },
+                { name: "Agudeza Visual", column: "Agudeza visual", value: "Alterada" },
+                { name: "EPOC", column: "EPOC", value: "Se verifica" },
+                { name: "Aneurisma de Aorta", column: "Aneurisma aorta", value: "Se verifica" },
+                { name: "Osteoporosis", column: "Osteoporosis", value: "Se verifica" },
+                { name: "Uso de Aspirina", column: "Aspirina", value: "Indicada" },
+                { name: "Salud Mental", column: "Depresión", value: "Se verifica" }
             ]
         }
     ];
@@ -179,6 +179,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         buildHealthChaptersMenu();
+    }
+
+    // Agrega esta función si no existe
+    function normalizeString(str) {
+        if (!str) return '';
+        return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
     }
 
     async function fetchData(tipo) {
@@ -342,80 +348,130 @@ document.addEventListener('DOMContentLoaded', () => {
         buildDashboard(allData);
         document.getElementById('total-casos').textContent = fixedIndicators.diasPreventivos;
     }
+function buildHealthChaptersMenu() {
+    menuContainer.innerHTML = '';
+    
+    IAPOS_PREVENTIVE_PROGRAM_MENU.forEach(category => {
+        const categoryDiv = document.createElement('div');
+        categoryDiv.classList.add('bg-gray-100', 'p-6', 'rounded-lg', 'mb-6', `category-container-shadow-${category.color.split('-')[0]}`);
+        
+        let categoryHTML = `
+            <div class="flex items-center space-x-4 mb-4">
+                <i class="fas fa-${category.icon} text-${category.color} text-2xl"></i>
+                <h3 class="text-xl font-semibold text-gray-800">${category.category}</h3>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        `;
 
-    function buildHealthChaptersMenu() {
-        menuContainer.innerHTML = '';
-        IAPOS_PREVENTIVE_PROGRAM_MENU.forEach(category => {
-            const categoryDiv = document.createElement('div');
-            categoryDiv.classList.add('bg-gray-100', 'p-6', 'rounded-lg', 'mb-6', `category-container-shadow-${category.color.split('-')[0]}`);
-            categoryDiv.innerHTML = `
-                <div class="flex items-center space-x-4 mb-4">
-                    <i class="fas fa-${category.icon} text-${category.color} text-2xl"></i>
-                    <h3 class="text-xl font-semibold text-gray-800">${category.category}</h3>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    ${category.subtopics.map(subtopic => {
-                        // Lógica para el subtema de IMC
-                        if (subtopic.name === "IMC") {
-                            const sobrepesoCount = allData.filter(row => (row[subtopic.subtopics[0].column] || '').toLowerCase() === subtopic.subtopics[0].value.toLowerCase()).length;
-                            const obesidadCount = allData.filter(row => Array.isArray(subtopic.subtopics[1].value) && subtopic.subtopics[1].value.some(val => (row[subtopic.subtopics[1].column] || '').toLowerCase().includes(val.toLowerCase()))).length;
-                            const totalIMC = sobrepesoCount + obesidadCount;
-                            return `
-                                <div class="subtopic bg-white p-4 rounded-lg border border-gray-300">
-                                    <p class="font-medium text-gray-700">${subtopic.name}</p>
-                                    <p class="text-sm text-gray-500 mt-1">Sobrepeso: <span class="font-bold text-gray-800">${sobrepesoCount}</span></p>
-                                    <p class="text-sm text-gray-500 mt-1">Obesidad: <span class="font-bold text-gray-800">${obesidadCount}</span></p>
-                                    <p class="text-sm text-gray-500 mt-1 font-bold">Total: <span class="font-bold text-gray-800">${totalIMC}</span></p>
-                                </div>
-                            `;
-                        }
-                        
-                        // Lógica para el subtema de Cáncer de Mama
-                        if (subtopic.name === "Cáncer de Mama") {
-                            const mamografiaCount = allData.filter(row => (row[subtopic.subtopics[0].column] || '').toLowerCase() === subtopic.subtopics[0].value.toLowerCase()).length;
-                            const ecografiaCount = subtopic.subtopics[1].fixedCount;
-                            return `
-                                <div class="subtopic bg-white p-4 rounded-lg border border-gray-300">
-                                    <p class="font-medium text-gray-700">${subtopic.name}</p>
-                                    <p class="text-sm text-gray-500 mt-1">Casos <span class="text-xs text-gray-400">(${subtopic.subtopics[0].parentesis})</span>: <span class="font-bold text-gray-800">${mamografiaCount}</span></p>
-                                    <p class="text-sm text-gray-500 mt-1">Casos <span class="text-xs text-gray-400">(${subtopic.subtopics[1].parentesis})</span>: <span class="font-bold text-gray-800">${ecografiaCount}</span></p>
-                                </div>
-                            `;
-                        }
-                        
-                        // Lógica para el resto de subtemas
-                        let count = 0;
-                        if (subtopic.type === 'multi-or') {
-                            const uniqueDNI = new Set();
-                            subtopic.columns.forEach(col => {
-                                allData.filter(row => (row[col] || '').toLowerCase() === subtopic.value.toLowerCase()).forEach(row => {
-                                    if(row.DNI) uniqueDNI.add(row.DNI);
-                                });
-                            });
-                            count = uniqueDNI.size;
-                        } else if (subtopic.normalized) {
-                            const normalizeString = (str) => str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
-                            count = allData.filter(row => normalizeString(row[subtopic.column]).includes(normalizeString(subtopic.value))).length;
-                        } else if (Array.isArray(subtopic.value)) {
-                            count = allData.filter(row => Array.isArray(subtopic.value) && subtopic.value.some(val => (row[subtopic.column] || '').toLowerCase().includes(val.toLowerCase()))).length;
-                        } else {
-                            count = allData.filter(row => (row[subtopic.column] || '').toLowerCase() === subtopic.value.toLowerCase()).length;
-                        }
+        category.subtopics.forEach(subtopic => {
+            let count = 0;
+            let displayText = '';
 
-                        const parentesisHtml = subtopic.parentesis ? `<span class="text-xs text-gray-400">(${subtopic.parentesis})</span>` : '';
-                        
-                        return `
-                            <div class="subtopic bg-white p-4 rounded-lg border border-gray-300">
-                                <p class="font-medium text-gray-700">${subtopic.name} ${parentesisHtml}</p>
-                                <p class="text-sm text-gray-500 mt-1">Casos: <span class="font-bold text-gray-800">${count}</span></p>
-                            </div>
-                        `;
-                    }).join('')}
+            try {
+                // Lógica para el subtema de IMC
+                if (subtopic.name === "IMC") {
+                    const sobrepesoCount = allData.filter(row => 
+                        row[subtopic.subtopics[0].column] && 
+                        normalizeString(row[subtopic.subtopics[0].column]) === normalizeString(subtopic.subtopics[0].value)
+                    ).length;
+                    
+                    const obesidadCount = allData.filter(row => 
+                        row[subtopic.subtopics[1].column] && 
+                        subtopic.subtopics[1].value.some(val => 
+                            normalizeString(row[subtopic.subtopics[1].column]).includes(normalizeString(val))
+                        )
+                    ).length;
+                    
+                    count = sobrepesoCount + obesidadCount;
+                    displayText = `
+                        <p class="text-sm text-gray-500 mt-1">Sobrepeso: <span class="font-bold text-gray-800">${sobrepesoCount}</span></p>
+                        <p class="text-sm text-gray-500 mt-1">Obesidad: <span class="font-bold text-gray-800">${obesidadCount}</span></p>
+                        <p class="text-sm text-gray-500 mt-1 font-bold">Total: <span class="font-bold text-gray-800">${count}</span></p>
+                    `;
+                }
+                // Lógica para el subtema de Cáncer de Mama
+                else if (subtopic.name === "Cáncer de Mama") {
+                    const mamografiaCount = allData.filter(row => 
+                        row[subtopic.subtopics[0].column] && 
+                        normalizeString(row[subtopic.subtopics[0].column]) === normalizeString(subtopic.subtopics[0].value)
+                    ).length;
+                    
+                    const ecografiaCount = allData.filter(row => 
+                        row[subtopic.subtopics[1].column] && 
+                        normalizeString(row[subtopic.subtopics[1].column]) === normalizeString(subtopic.subtopics[1].value)
+                    ).length;
+                    
+                    displayText = `
+                        <p class="text-sm text-gray-500 mt-1">Mamografía: <span class="font-bold text-gray-800">${mamografiaCount}</span></p>
+                        <p class="text-sm text-gray-500 mt-1">Ecografía: <span class="font-bold text-gray-800">${ecografiaCount}</span></p>
+                        <p class="text-sm text-gray-500 mt-1 font-bold">Total: <span class="font-bold text-gray-800">${mamografiaCount + ecografiaCount}</span></p>
+                    `;
+                    count = mamografiaCount + ecografiaCount;
+                }
+                // Lógica para multi-or (múltiples columnas)
+                else if (subtopic.type === 'multi-or') {
+                    const uniqueDNI = new Set();
+                    
+                    subtopic.columns.forEach(col => {
+                        allData.filter(row => 
+                            row[col] && 
+                            normalizeString(row[col]) === normalizeString(subtopic.value)
+                        ).forEach(row => {
+                            if (row.DNI) uniqueDNI.add(row.DNI);
+                        });
+                    });
+                    
+                    count = uniqueDNI.size;
+                    displayText = `<p class="text-sm text-gray-500 mt-1">Casos: <span class="font-bold text-gray-800">${count}</span></p>`;
+                }
+                // Lógica normalizada
+                else if (subtopic.normalized) {
+                    count = allData.filter(row => 
+                        row[subtopic.column] && 
+                        normalizeString(row[subtopic.column]).includes(normalizeString(subtopic.value))
+                    ).length;
+                    displayText = `<p class="text-sm text-gray-500 mt-1">Casos: <span class="font-bold text-gray-800">${count}</span></p>`;
+                }
+                // Lógica para arrays de valores
+                else if (Array.isArray(subtopic.value)) {
+                    count = allData.filter(row => 
+                        row[subtopic.column] && 
+                        subtopic.value.some(val => 
+                            normalizeString(row[subtopic.column]).includes(normalizeString(val))
+                        )
+                    ).length;
+                    displayText = `<p class="text-sm text-gray-500 mt-1">Casos: <span class="font-bold text-gray-800">${count}</span></p>`;
+                }
+                // Lógica estándar
+                else {
+                    count = allData.filter(row => 
+                        row[subtopic.column] && 
+                        normalizeString(row[subtopic.column]) === normalizeString(subtopic.value)
+                    ).length;
+                    displayText = `<p class="text-sm text-gray-500 mt-1">Casos: <span class="font-bold text-gray-800">${count}</span></p>`;
+                }
+
+            } catch (error) {
+                console.error(`Error procesando ${subtopic.name}:`, error);
+                displayText = `<p class="text-sm text-red-500 mt-1">Error al cargar datos</p>`;
+            }
+
+            const parentesisHtml = subtopic.parentesis ? 
+                `<span class="text-xs text-gray-400">(${subtopic.parentesis})</span>` : '';
+
+            categoryHTML += `
+                <div class="subtopic bg-white p-4 rounded-lg border border-gray-300">
+                    <p class="font-medium text-gray-700">${subtopic.name} ${parentesisHtml}</p>
+                    ${displayText}
                 </div>
             `;
-            menuContainer.appendChild(categoryDiv);
         });
-    }
+
+        categoryHTML += `</div>`;
+        categoryDiv.innerHTML = categoryHTML;
+        menuContainer.appendChild(categoryDiv);
+    });
+}
 
     function createAgeChart(data) {
         if (!data || data.length === 0) return;
