@@ -48,11 +48,24 @@ document.addEventListener('DOMContentLoaded', () => {
             ]
         },
         {
+        category: "Hábitos",
+        icon: "walking",  // o "running", "utensils", "glass-cheers"
+        color: "lime-600",
+        subtopics: [
+            { name: "Alimentación no saludable", column: "Alimentación saludable", value: "No" },
+            { name: "Sedentarismo", column: "Actividad física", value: "No realiza" },
+            { name: "Riesgo vial", column: "Seguridad vial", value: "No cumple" },
+            { name: "Abuso de alcohol", column: "Abuso alcohol", value: "Abusa" },
+            { name: "Situaciones de violencia", column: "Violencia", value: "Se verifica" }
+        ]
+        },
+        {
             category: "Otros Temas de Salud",
             icon: "plus",
             color: "teal-600",
             subtopics: [
-                { name: "Salud Bucal", column: "Control Odontológico", value: "Riesgo Alto" },
+                { name: "Salud Bucal Adultos", column: "Control Odontológico - Adultos", value: "Riesgo Alto" },   
+                { name: "Salud Bucal Niños", column: "Control Odontológico - Niños", value: "Riesgo Alto" },
                 { name: "Salud Renal", column: "ERC", value: "Patológico" },
                 { name: "Agudeza Visual", column: "Agudeza visual", value: "Alterada" },
                 { name: "EPOC", column: "EPOC", value: "Se verifica" },

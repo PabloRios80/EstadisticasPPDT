@@ -30,11 +30,9 @@ function saveTokens(tokens) {
     console.log('Tokens guardados en token.json.');
 }
 
-// Configuración para servir la página de inicio
 app.use(express.static(path.join(__dirname, 'public'), { index: 'estadisticas.html' }));
 app.use(express.json());
 
-// Función para normalizar cadenas (eliminar acentos y convertir a minúsculas)
 function normalizeString(str) {
     if (!str) return '';
     return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
@@ -76,7 +74,7 @@ app.get('/obtener-campos', async (req, res) => {
         const sheetName = 'Integrado';
 
         const camposAExcluir = [
-            'ID', 'Marca temporal', 'FECHAX',
+            'Dia', 'ID', 'IDapellido y nombre', 'Marca temporal', 'FECHAX', 'Observaciones - Dislipemias', 'Observaciones - Diabetes', 'Observaciones - Presión Arterial', 'Observaciones - IMC', 'Observaciones - Agudeza visual', 'Valor CPO', 'Observaciones - Control odontológico', 'Observaciones - Alimentación saludable', 'Observaciones - Actividad física', 'Observaciones - Seguridad vial', 'Observaciones - Caídas en adultos mayores', 'Observaciones - Ácido fólico', 'Observaciones - Abuso alcohol', 'Observaciones - Tabaco', 'Observaciones - Violencia', 'Observaciones - Depresión', 'Observaciones - ITS', 'Observaciones - Hepatitis B', 'Observaciones - Hepatitis C', 'Observaciones - VIH', 'Observaciones - HPV', 'Observaciones - PAP', 'Observaciones - SOMF', 'Observaciones - Colonoscopía', 'Observaciones - Mamografía', 'Observaciones_Eco_mamaria', 'Observaciones - ERC', 'Observaciones - EPOC', 'Observaciones - Aneurisma aorta', 'Observaciones - Osteoporosis', 'Observaciones - Riesgo CV', 'Observaciones - Aspirina', 'Observaciones - Inmunizaciones', 'Observaciones - VDRL', 'Observaciones - PSA', 'Observaciones - Chagas', 'Observaciones - Examen Físico', 'Observaciones - Talla', 'Observaciones - Salud Ocular', 'Observaciones - Audición', 'Observaciones - Salud Cardiovascular', 'Observaciones - Educación sexual', 'Observaciones - Salud Mental', 'Observaciones - Consumo de sustancias', 'Observaciones - Dislipemia', 'Observaciones - Síndrome Metabólico', 'Observaciones - Escoliosis', 'Observaciones - Cáncer cérvico uterino', 'Observaciones - Cáncer de piel', 'Observaciones - Desarrollo escolar', 'Observaciones - Uso de pantallas', 'Observaciones - Vacunas', 'Observaciones - Control Odontológico - Niños', 'Observaciones - Control Odontológico - Adultos', 'link'
         ];
 
         const response = await sheets.spreadsheets.values.get({
@@ -138,7 +136,9 @@ app.get('/obtener-datos-completos', async (req, res) => {
         const sheetName = 'Integrado';
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
-            range: `${sheetName}!A:DM`
+            range: `${sheetName}!A:DM`,
+            valueRenderOption: 'UNFORMATTED_VALUE',
+            dateTimeRenderOption: 'FORMATTED_STRING'
         });
 
         const [headers, ...rows] = response.data.values;
@@ -151,7 +151,7 @@ app.get('/obtener-datos-completos', async (req, res) => {
         });
 
         const tipo = req.query.tipo;
-        const filteredData = tipo ? data.filter(row => normalizeString(row['Dia']) === normalizeString(tipo)) : data;
+        const filteredData = tipo ? data.filter(row => normalizeString(row['Tipo']) === normalizeString(tipo)) : data;
 
         res.json(filteredData);
     } catch (error) {
@@ -168,7 +168,9 @@ app.get('/obtener-indicadores-fijos', async (req, res) => {
 
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
-            range: `${sheetName}!A:DM`
+            range: `${sheetName}!A:DM`,
+            valueRenderOption: 'UNFORMATTED_VALUE',
+            dateTimeRenderOption: 'FORMATTED_STRING'
         });
 
         const [headers, ...rows] = response.data.values;
@@ -181,7 +183,7 @@ app.get('/obtener-indicadores-fijos', async (req, res) => {
         });
 
         const tipo = req.query.tipo;
-        const dataParaCalculo = tipo ? data.filter(row => normalizeString(row['Dia']) === normalizeString(tipo)) : data;
+        const dataParaCalculo = tipo ? data.filter(row => normalizeString(row['Tipo']) === normalizeString(tipo)) : data;
 
         const dniMap = new Map();
         dataParaCalculo.forEach(row => {
