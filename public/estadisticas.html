@@ -115,6 +115,18 @@
             <div id="menu-container" class="space-y-6"></div>
         </div>
 
+        <div id="informe-ia" class="bg-white p-8 rounded-lg shadow-xl mb-8 hidden">
+            <h2 class="text-2xl font-bold mb-4">Generar Informe con IA</h2>
+            <textarea id="prompt-usuario" class="w-full h-32 p-4 border rounded-md mb-4 resize-none" placeholder="Escribe instrucciones personalizadas para el informe..."></textarea>
+            <button id="generar-informe-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-full focus:outline-none focus:shadow-outline">Generar Informe</button>
+            <button id="exportar-pdf-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full focus:outline-none focus:shadow-outline hidden">Exportar a PDF</button>
+            <button id="imprimir-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full focus:outline-none focus:shadow-outline hidden">Imprimir</button>
+            
+            <div id="contenedor-informe" class="mt-8 prose max-w-none">
+                <p class="text-gray-500">El informe generado por la IA aparecerá aquí.</p>
+            </div>
+        </div>
+
         <div id="dashboard-graficos" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 hidden">
             <div class="bg-white p-6 rounded-lg shadow-md">
                 <h3 class="text-lg font-semibold text-gray-800 mb-4">Grupos de Edad</h3>
@@ -133,7 +145,7 @@
                 <canvas id="sexo-enfermedad-chart"></canvas>
             </div>
         </div>
-
+        
         <div id="info-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center p-4">
             <div class="bg-white p-6 rounded-lg shadow-xl max-w-lg w-full">
                 <div class="flex justify-between items-center mb-4">
@@ -148,6 +160,8 @@
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="estadisticas.js"></script>
 </body>
 </html>

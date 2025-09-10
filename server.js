@@ -8,10 +8,28 @@ const PORT = process.env.PORT || 3000;
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const REDIRECT_URI = 'http://localhost:3000/oauth2callback';
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const axios = require('axios');
+
 const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly'];
 const TOKEN_PATH = path.join(__dirname, 'token.json');
+
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+let contextoDelPrograma = '';
+
+async function cargarContexto() {
+    try {
+        const fileContent = fs.readFileSync(path.join(__dirname, 'contexto_informes.txt'), 'utf-8');
+        contextoDelPrograma = fileContent;
+        console.log('Contexto del programa cargado con éxito.');
+    } catch (error) {
+        console.error('Error al cargar el archivo de contexto:', error);
+        contextoDelPrograma = 'No se pudo cargar el contexto del programa.';
+    }
+}
 
 async function loadTokens() {
     try {
@@ -31,7 +49,7 @@ function saveTokens(tokens) {
 }
 
 app.use(express.static(path.join(__dirname, 'public'), { index: 'estadisticas.html' }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 
 function normalizeString(str) {
     if (!str) return '';
@@ -230,7 +248,7 @@ app.get('/obtener-indicadores-fijos', async (req, res) => {
             if ((row['Dislipemias'] || '').trim().toLowerCase() === 'presenta') enfermedades.dislipemias++;
             if ((row['Tabaco'] || '').trim().toLowerCase() === 'fuma') enfermedades.fumadores++;
             const imc = (row['IMC'] || '').trim().toLowerCase();
-            if (imc.includes('sobrepeso') || imc.includes('obesidad')) enfermedades.obesos++;
+            if (imc.includes('sobrepeso') || imc.includes('obesidad')) enfermedades.obesidad++;
         });
 
         let altoRiesgoCount = 0;
@@ -272,8 +290,176 @@ app.get('/obtener-indicadores-fijos', async (req, res) => {
     }
 });
 
+app.post('/generar-informe', async (req, res) => {
+    try {
+        const { data, userPrompt } = req.body;
+        
+        if (!data || data.length === 0) {
+            return res.status(400).json({ error: 'No se recibieron datos para generar el informe.' });
+        }
+        
+        // Calcular estadísticas básicas
+        const totalCasos = data.length;
+        const diabetes = data.filter(row => normalizeString(row.Diabetes) === 'presenta').length;
+        const hipertension = data.filter(row => normalizeString(row['Presión Arterial']).includes('hipertens')).length;
+        const dislipemias = data.filter(row => normalizeString(row.Dislipemias) === 'presenta').length;
+        const tabaquismo = data.filter(row => normalizeString(row.Tabaco) === 'fuma').length;
+        const obesidad = data.filter(row => normalizeString(row.IMC).includes('obesidad')).length;
+        const sobrepeso = data.filter(row => normalizeString(row.IMC).includes('sobrepeso')).length;
+
+        // Crear el prompt con formato IAPOS específico
+        const promptCompleto = `
+${contextoDelPrograma}
+
+DATOS ESTADÍSTICOS ACTUALES (${totalCasos} personas):
+- Diabetes: ${diabetes} casos (${((diabetes/totalCasos)*100).toFixed(1)}%)
+- Hipertensión: ${hipertension} casos (${((hipertension/totalCasos)*100).toFixed(1)}%)
+- Dislipemias: ${dislipemias} casos (${((dislipemias/totalCasos)*100).toFixed(1)}%)
+- Tabaquismo: ${tabaquismo} casos (${((tabaquismo/totalCasos)*100).toFixed(1)}%)
+- Obesidad: ${obesidad} casos (${((obesidad/totalCasos)*100).toFixed(1)}%)
+- Sobrepeso: ${sobrepeso} casos (${((sobrepeso/totalCasos)*100).toFixed(1)}%)
+
+SOLICITUD: "${userPrompt || 'Generar informe estadístico completo'}"
+
+INSTRUCCIONES ESPECÍFICAS DE FORMATO IAPOS:
+
+1. ENCABEZADO:
+   - Logo IAPOS arriba a la izquierda (usar emoji 🏥 o ⚕️ para representar)
+   - Fecha actual arriba a la derecha (formato: DD/MM/AAAA)
+   - Título principal: "IAPOS" en color azul (#0066CC) y negrita
+   - Subtítulo: "Informe de Evaluación y Seguimiento del Día Preventivo" en azul más claro (#0088CC)
+
+2. ESTRUCTURA POR CAPÍTULOS DE SALUD:
+   - CAPÍTULO 1: Salud Cardiovascular (Diabetes, Hipertensión, Dislipemias)
+   - CAPÍTULO 2: Hábitos y Estilo de Vida (Tabaquismo, Alimentación)
+   - CAPÍTULO 3: Estado Nutricional (Obesidad, Sobrepeso, IMC)
+   - CAPÍTULO 4: Factores de Riesgo Integrados
+   - CAPÍTULO 5: Conclusiones y Recomendaciones
+
+3. ESTILO Y TONO:
+   - Técnico pero amable y comunicativo
+   - Usar colores de la gama azul (#0066CC, #0088CC, #00AAFF) y rojo (#CC0000, #FF3333) para destacados
+   - Lenguaje profesional pero accesible para el equipo de salud
+   - Incluir emojis médicos relevantes (🫀❤️⚕️🏥💊)
+   - Destacar porcentajes y datos importantes en negrita
+
+4. CONTENIDO OBLIGATORIO:
+   - Introducción con contexto del Programa Día Preventivo
+   - Análisis por capítulos como el dashboard
+   - Gráficos descriptivos con texto (usar █ para barras)
+   - Conclusiones basadas en evidencia
+   - Recomendaciones específicas y accionables
+
+5. FORMATEO:
+   - Usar encabezados con ## para títulos
+   - Usar tablas para datos comparativos
+   - Emplear viñetas con • para listas
+   - Separar secciones con líneas divisorias (---)
+
+Genera el informe completo en español con este formato específico.
+`;
+
+        console.log('🌐 Enviando solicitud a Gemini con formato IAPOS...');
+        
+        try {
+            const response = await axios.post(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+                {
+                    contents: [{
+                        parts: [{
+                            text: promptCompleto
+                        }]
+                    }],
+                    generationConfig: {
+                        temperature: 0.7,
+                        maxOutputTokens: 3096, // Más tokens para formato detallado
+                        topP: 0.8,
+                        topK: 40
+                    }
+                },
+                {
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 60000 // 60 segundos para informe detallado
+                }
+            );
+
+            console.log('✅ Respuesta recibida de Gemini');
+            
+            if (response.data && response.data.candidates && response.data.candidates.length > 0) {
+                const informe = response.data.candidates[0].content.parts[0].text;
+                console.log('📝 Informe IAPOS generado exitosamente');
+                
+                // Opcional: agregar CSS inline básico para colores
+                const informeConEstilo = informe
+                    .replace(/IAPOS/g, '<span style="color: #0066CC; font-weight: bold;">IAPOS</span>')
+                    .replace(/Día Preventivo/g, '<span style="color: #0088CC;">Día Preventivo</span>')
+                    .replace(/(\d+\.\d+%|\d+%)/g, '<span style="color: #CC0000; font-weight: bold;">$1</span>');
+                
+                return res.json({ 
+                    informe: informeConEstilo,
+                    modelo: 'gemini-1.5-flash',
+                    formato: 'estilo-IAPOS'
+                });
+            }
+
+        } catch (error) {
+            console.error('❌ Error con Gemini:', error.message);
+            
+            // Informe automático con estilo IAPOS
+            const fechaActual = new Date().toLocaleDateString('es-AR');
+            const informeAutomatico = `
+🏥 **IAPOS** <div style="text-align: right; float: right;">${fechaActual}</div>
+<div style="clear: both;"></div>
+
+## <span style="color: #0066CC;">Informe de Evaluación y Seguimiento del Día Preventivo</span>
+
+---
+
+### 📊 **CAPÍTULO 1: RESUMEN EJECUTIVO**
+**Total de personas atendidas:** ${totalCasos}
+
+### ❤️ **CAPÍTULO 2: SALUD CARDIOVASCULAR**
+• **Diabetes:** ${diabetes} casos <span style="color: #CC0000;">(${((diabetes/totalCasos)*100).toFixed(1)}%)</span>
+• **Hipertensión arterial:** ${hipertension} casos <span style="color: #CC0000;">(${((hipertension/totalCasos)*100).toFixed(1)}%)</span>
+• **Dislipemias:** ${dislipemias} casos <span style="color: #CC0000;">(${((dislipemias/totalCasos)*100).toFixed(1)}%)</span>
+
+### 🍎 **CAPÍTULO 3: ESTADO NUTRICIONAL**
+• **Obesidad:** ${obesidad} casos <span style="color: #CC0000;">(${((obesidad/totalCasos)*100).toFixed(1)}%)</span>
+• **Sobrepeso:** ${sobrepeso} casos <span style="color: #CC0000;">(${((sobrepeso/totalCasos)*100).toFixed(1)}%)</span>
+
+### 🚭 **CAPÍTULO 4: HÁBITOS DE VIDA**
+• **Tabaquismo:** ${tabaquismo} casos <span style="color: #CC0000;">(${((tabaquismo/totalCasos)*100).toFixed(1)}%)</span>
+
+### 💡 **CAPÍTULO 5: RECOMENDACIONES**
+1. Fortalecer programas de prevención cardiovascular
+2. Implementar seguimiento personalizado
+3. Desarrollar estrategias nutricionales
+4. Promover cesación tabáquica
+
+---
+
+<span style="color: #0088CC;">*Informe generado automáticamente - Programa Día Preventivo IAPOS*</span>
+`;
+
+            return res.json({ 
+                informe: informeAutomatico,
+                aviso: "Informe automático con estilo IAPOS"
+            });
+        }
+
+    } catch (error) {
+        console.error('💥 Error general:', error);
+        return res.status(500).json({ 
+            error: 'Error interno del servidor',
+            message: error.message
+        });
+    }
+});
 async function startServer() {
     await loadTokens();
+    await cargarContexto(); // Carga el contexto del programa antes de iniciar
     app.listen(PORT, () => {
         console.log(`Servidor escuchando en el puerto ${PORT}`);
         console.log('Si es tu primera vez, visita http://localhost:3000/auth para autenticarte.');
