@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Día Preventivo - IAPOS</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <style>
@@ -24,6 +25,41 @@
             border-left: 8px solid #14B8A6; /* Teal */
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
+           /* Estilos para el modal de informe */
+        .modal-informe {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            z-index: 10000;
+            overflow: auto;
+            padding: 20px;
+        }
+    
+        .controles-informe {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10001;
+        }
+    
+        .btn-informe {
+            background: #0066CC;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+    
+        .btn-cerrar {
+            background: #CC0000;
+        }
+
     </style>
 </head>
 <body class="bg-gray-50 font-sans">
@@ -42,21 +78,26 @@
             <span id="fecha-actualizacion"></span>
         </div>
     </header>
-
-    <div class="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-4 mb-8 mt-8">
-        <div class="flex space-x-2">
-            <button id="filtro-adultos" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline">Adultos</button>
-            <button id="filtro-pediatrico" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline">Pediátrico</button>
+        <div class="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-4 mb-8 mt-8">
+            <div class="flex space-x-2">
+                <button id="filtro-total" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline">Total</button>
+                <button id="filtro-adultos" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline">Adultos</button>
+                <button id="filtro-pediatrico" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline">Pediátrico</button>
+            </div>
         </div>
         <div class="flex space-x-4">
             <button id="mostrar-controles" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline">Mostrar Cruces</button>
             <button id="mostrar-capitulos" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline">Capítulos de Salud</button>
             <button id="limpiar-filtros" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline hidden">Limpiar Filtros</button>
+            <!-- BOTÓN NUEVO PARA INFORME VISUAL COMPLETO -->
+            <button onclick="generarInformeVisualCompleto()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-full">
+                📋 Informe Visual Completo
+            </button>
         </div>
     </div>
 
     <div class="container mx-auto p-8">
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
+        <div id="indicadores-principales" class="flex flex-wrap justify-between gap-6 mb-8"></div>
             <div id="indicador-casos" class="bg-white p-4 rounded-full shadow-md text-center flex items-center justify-center space-x-2 cursor-pointer">
                 <i class="fas fa-users text-blue-500 text-2xl"></i>
                 <div>

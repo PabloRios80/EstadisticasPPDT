@@ -56,6 +56,7 @@ function normalizeString(str) {
     return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 }
 
+
 app.get('/auth', (req, res) => {
     const authUrl = oauth2Client.generateAuthUrl({
         access_type: 'offline',
@@ -290,6 +291,186 @@ app.get('/obtener-indicadores-fijos', async (req, res) => {
     }
 });
 
+
+// --- FUNCIONES AUXILIARES ---
+
+function determinarTipoInforme(userPrompt) {
+    const prompt = userPrompt.toLowerCase();
+    if (prompt.includes('cáncer') || prompt.includes('cancer')) return 'cancer';
+    if (prompt.includes('cardio') || prompt.includes('corazón') || prompt.includes('corazon')) return 'cardiovascular';
+    if (prompt.includes('diabetes')) return 'diabetes';
+    if (prompt.includes('hipertensión') || prompt.includes('hipertension')) return 'hipertension';
+    if (prompt.includes('nutrición') || prompt.includes('nutricion') || prompt.includes('obesidad')) return 'nutricion';
+    if (prompt.includes('tabaco') || prompt.includes('fumar')) return 'tabaquismo';
+    return 'completo';
+}
+function generarPromptEspecifico(tipoInforme, stats, userPrompt, contexto) {
+    return `
+CONTEXTO DEL PROGRAMA IAPOS:
+${contexto}
+
+DATOS ESTADÍSTICOS ACTUALES:
+- Total de personas atendidas: ${stats.totalCasos}
+- Mujeres: ${stats.totalMujeres} | Hombres: ${stats.totalHombres}
+- Adultos: ${stats.adultos} | Pediátrico: ${stats.pediatrico}
+- Diabetes: ${stats.prevalenciaDiabetes}% | Hipertensión: ${stats.prevalenciaHipertension}%
+- Dislipemias: ${stats.prevalenciaDislipemias}% | Tabaquismo: ${stats.prevalenciaTabaquismo}%
+- Obesidad: ${stats.prevalenciaObesidad}% | Sobrepeso: ${stats.prevalenciaSobrepeso}%
+- Enfermedades crónicas: ${stats.enfermedadesCronicas} casos
+
+SOLICITUD: "${userPrompt}"
+
+INSTRUCCIONES ESPECÍFICAS PARA EL INFORME:
+
+1. ENCABEZADO (5-6 renglones):
+    - Historia y marco legal del Programa Día Preventivo IAPOS
+    - Contexto institucional y normativo
+    - Importancia en salud pública
+
+2. ANÁLISIS GLOBAL (5-6 renglones):
+    - Cantidad total de personas atendidas
+    - Distribución por sexo y grupos etarios
+    - Promedio y ranges de edad
+    - Datos principales del dashboard
+
+3. ANÁLISIS POR CAPÍTULOS (10-12 renglones cada uno):
+    a) RIESGO CARDIOVASCULAR Y ENFERMEDADES CRÓNICAS:
+      * Como especialista en cardiología, epidemiología y medicina clínica
+      * Análisis de diabetes, hipertensión, dislipemias
+      * Factores de riesgo integrados
+      * Estrategias de prevención
+
+    b) PREVENCIÓN DE CÁNCER:
+      * Como oncólogo especialista
+      * Análisis de screening y detección temprana
+      * Factores de riesgo oncológicos
+      * Programas de prevención específicos
+
+    c) ENFERMEDADES INFECCIOSAS:
+      * Como infectólogo especialista
+      * Análisis de prevalencia e impacto
+      * Estrategias de prevención y control
+      * Programas de vacunación y screening
+
+    d) HÁBITOS Y ESTILO DE VIDA:
+      * Como especialista en medicina preventiva
+      * Análisis de tabaquismo, nutrición, actividad física
+      * Estrategias de modificación conductual
+
+4. CONCLUSIONES Y RECOMENDACIONES (5-6 renglones):
+    - Conclusiones generales del programa
+    - Propuestas de mejora específicas
+    - Recomendaciones estratégicas para IAPOS
+
+REGLAS ESTRICTAS:
+- Lenguaje técnico pero accesible
+- Máximo 20 renglones por capítulo
+- Enfoque en prevención y salud pública
+- Basado exclusivamente en los datos proporcionados
+- Formato profesional para informes médicos
+- Sin preámbulos ni introducciones redundantes
+
+RESPONDER ÚNICAMENTE CON EL CONTENIDO DEL INFORME.
+`;
+}
+
+// Funciones de cálculo para los indicadores
+function calcularCancerMama(data) {
+    return data.filter(r => 
+        normalizeString(r['Cáncer mama - Mamografía']) === 'patologico' || 
+        normalizeString(r['Cáncer mama - Eco mamaria']) === 'patologico'
+    ).length;
+}
+
+function calcularCancerCervicoUterino(data) {
+    return data.filter(r => 
+        normalizeString(r['Cáncer cérvico uterino - PAP']) === 'patologico' || 
+        normalizeString(r['Cáncer cérvico uterino - HPV']) === 'patologico'
+    ).length;
+}
+
+function calcularCancerColon(data) {
+    return data.filter(r => 
+        normalizeString(r['SOMF']) === 'patologico' || 
+        normalizeString(r['Cáncer colon - Colonoscopía']) === 'patologico'
+    ).length;
+}
+
+function calcularCancerProstata(data) {
+    return data.filter(r => 
+        normalizeString(r['Próstata - PSA']) === 'patologico'
+    ).length;
+}
+function calcularIndicadoresCompletos(data) {
+    // Usar los indicadores fijos que ya calculas
+    const fixedIndicators = {
+        diasPreventivos: data.length,
+        sexo: {
+            femenino: data.filter(r => normalizeString(r.Sexo) === 'femenino').length,
+            masculino: data.filter(r => normalizeString(r.Sexo) === 'masculino').length
+        },
+        edad: {
+            'Menores de 18': data.filter(r => parseInt(r.Edad) < 18).length,
+            '18 a 30': data.filter(r => parseInt(r.Edad) >= 18 && parseInt(r.Edad) <= 30).length,
+            '30 a 50': data.filter(r => parseInt(r.Edad) > 30 && parseInt(r.Edad) <= 50).length,
+            'Mayores de 50': data.filter(r => parseInt(r.Edad) > 50).length
+        },
+        enfermedades: {
+            diabetes: data.filter(r => normalizeString(r.Diabetes) === 'presenta').length,
+            hipertension: data.filter(r => normalizeString(r['Presión Arterial']).includes('hipertens')).length,
+            dislipemias: data.filter(r => normalizeString(r.Dislipemias) === 'presenta').length,
+            fumadores: data.filter(r => normalizeString(r.Tabaco) === 'fuma').length,
+            obesos: data.filter(r => normalizeString(r.IMC).includes('obesidad')).length
+        },
+        altoRiesgo: data.filter(r => {
+            const edad = parseInt(r.Edad);
+            return edad > 50 && (
+                normalizeString(r.Diabetes) === 'presenta' ||
+                normalizeString(r['Presión Arterial']).includes('hipertens') ||
+                normalizeString(r.IMC).includes('obesidad') || 
+                normalizeString(r.IMC).includes('sobrepeso') ||
+                normalizeString(r.Tabaco) === 'fuma'
+            );
+        }).length,
+        
+        // Indicadores de cáncer
+        cancerMama: data.filter(r => 
+            normalizeString(r['Cáncer mama - Mamografía']) === 'patologico' || 
+            normalizeString(r['Cáncer mama - Eco mamaria']) === 'patologico'
+        ).length,
+        
+        cancerCervico: data.filter(r => 
+            normalizeString(r['Cáncer cérvico uterino - PAP']) === 'patologico' || 
+            normalizeString(r['Cáncer cérvico uterino - HPV']) === 'patologico'
+        ).length,
+        
+        cancerColon: data.filter(r => 
+            normalizeString(r['SOMF']) === 'patologico' || 
+            normalizeString(r['Cáncer colon - Colonoscopía']) === 'patologico'
+        ).length,
+        
+        cancerProstata: data.filter(r => 
+            normalizeString(r['Próstata - PSA']) === 'patologico'
+        ).length,
+        
+        // Enfermedades infecciosas
+        vih: data.filter(r => normalizeString(r['VIH']) === 'positivo').length,
+        hepatitisB: data.filter(r => normalizeString(r['Hepatitis B']) === 'positivo').length,
+        hepatitisC: data.filter(r => normalizeString(r['Hepatitis C']) === 'positivo').length,
+        vdrl: data.filter(r => normalizeString(r['VDRL']) === 'positivo').length,
+        chagas: data.filter(r => normalizeString(r['Chagas']) === 'positivo').length,
+        
+        // Otros indicadores
+        saludBucal: data.filter(r => normalizeString(r['Control Odontológico - Adultos']) === 'riesgo alto').length,
+        saludRenal: data.filter(r => normalizeString(r['ERC']) === 'patológico').length,
+        agudezaVisual: data.filter(r => normalizeString(r['Agudeza visual']) === 'alterada').length,
+        depresion: data.filter(r => normalizeString(r['Depresión']) === 'se verifica').length,
+        epoc: data.filter(r => normalizeString(r['EPOC']) === 'se verifica').length
+    };
+    
+    return fixedIndicators;
+}
+
 app.post('/generar-informe', async (req, res) => {
     try {
         const { data, userPrompt } = req.body;
@@ -298,68 +479,14 @@ app.post('/generar-informe', async (req, res) => {
             return res.status(400).json({ error: 'No se recibieron datos para generar el informe.' });
         }
         
-        // Calcular estadísticas básicas
+        // Calcular TODAS las estadísticas necesarias
         const totalCasos = data.length;
-        const diabetes = data.filter(row => normalizeString(row.Diabetes) === 'presenta').length;
-        const hipertension = data.filter(row => normalizeString(row['Presión Arterial']).includes('hipertens')).length;
-        const dislipemias = data.filter(row => normalizeString(row.Dislipemias) === 'presenta').length;
-        const tabaquismo = data.filter(row => normalizeString(row.Tabaco) === 'fuma').length;
-        const obesidad = data.filter(row => normalizeString(row.IMC).includes('obesidad')).length;
-        const sobrepeso = data.filter(row => normalizeString(row.IMC).includes('sobrepeso')).length;
+        const stats = calcularEstadisticasCompletas(data);
 
-        // Crear el prompt con formato IAPOS específico
-        const promptCompleto = `
-${contextoDelPrograma}
-
-DATOS ESTADÍSTICOS ACTUALES (${totalCasos} personas):
-- Diabetes: ${diabetes} casos (${((diabetes/totalCasos)*100).toFixed(1)}%)
-- Hipertensión: ${hipertension} casos (${((hipertension/totalCasos)*100).toFixed(1)}%)
-- Dislipemias: ${dislipemias} casos (${((dislipemias/totalCasos)*100).toFixed(1)}%)
-- Tabaquismo: ${tabaquismo} casos (${((tabaquismo/totalCasos)*100).toFixed(1)}%)
-- Obesidad: ${obesidad} casos (${((obesidad/totalCasos)*100).toFixed(1)}%)
-- Sobrepeso: ${sobrepeso} casos (${((sobrepeso/totalCasos)*100).toFixed(1)}%)
-
-SOLICITUD: "${userPrompt || 'Generar informe estadístico completo'}"
-
-INSTRUCCIONES ESPECÍFICAS DE FORMATO IAPOS:
-
-1. ENCABEZADO:
-   - Logo IAPOS arriba a la izquierda (usar emoji 🏥 o ⚕️ para representar)
-   - Fecha actual arriba a la derecha (formato: DD/MM/AAAA)
-   - Título principal: "IAPOS" en color azul (#0066CC) y negrita
-   - Subtítulo: "Informe de Evaluación y Seguimiento del Día Preventivo" en azul más claro (#0088CC)
-
-2. ESTRUCTURA POR CAPÍTULOS DE SALUD:
-   - CAPÍTULO 1: Salud Cardiovascular (Diabetes, Hipertensión, Dislipemias)
-   - CAPÍTULO 2: Hábitos y Estilo de Vida (Tabaquismo, Alimentación)
-   - CAPÍTULO 3: Estado Nutricional (Obesidad, Sobrepeso, IMC)
-   - CAPÍTULO 4: Factores de Riesgo Integrados
-   - CAPÍTULO 5: Conclusiones y Recomendaciones
-
-3. ESTILO Y TONO:
-   - Técnico pero amable y comunicativo
-   - Usar colores de la gama azul (#0066CC, #0088CC, #00AAFF) y rojo (#CC0000, #FF3333) para destacados
-   - Lenguaje profesional pero accesible para el equipo de salud
-   - Incluir emojis médicos relevantes (🫀❤️⚕️🏥💊)
-   - Destacar porcentajes y datos importantes en negrita
-
-4. CONTENIDO OBLIGATORIO:
-   - Introducción con contexto del Programa Día Preventivo
-   - Análisis por capítulos como el dashboard
-   - Gráficos descriptivos con texto (usar █ para barras)
-   - Conclusiones basadas en evidencia
-   - Recomendaciones específicas y accionables
-
-5. FORMATEO:
-   - Usar encabezados con ## para títulos
-   - Usar tablas para datos comparativos
-   - Emplear viñetas con • para listas
-   - Separar secciones con líneas divisorias (---)
-
-Genera el informe completo en español con este formato específico.
-`;
-
-        console.log('🌐 Enviando solicitud a Gemini con formato IAPOS...');
+        // Determinar el tipo de informe solicitado
+        const tipoInforme = determinarTipoInforme(userPrompt);
+        
+        console.log(`🌐 Generando informe tipo: ${tipoInforme}...`);
         
         try {
             const response = await axios.post(
@@ -367,96 +494,172 @@ Genera el informe completo en español con este formato específico.
                 {
                     contents: [{
                         parts: [{
-                            text: promptCompleto
+                            text: generarPromptEspecifico(tipoInforme, stats, userPrompt, contextoDelPrograma)
                         }]
                     }],
                     generationConfig: {
                         temperature: 0.7,
-                        maxOutputTokens: 3096, // Más tokens para formato detallado
-                        topP: 0.8,
-                        topK: 40
+                        maxOutputTokens: 4096,
+                        topP: 0.8
                     }
                 },
                 {
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    timeout: 60000 // 60 segundos para informe detallado
+                    headers: { 'Content-Type': 'application/json' },
+                    timeout: 60000
                 }
             );
 
-            console.log('✅ Respuesta recibida de Gemini');
-            
-            if (response.data && response.data.candidates && response.data.candidates.length > 0) {
-                const informe = response.data.candidates[0].content.parts[0].text;
-                console.log('📝 Informe IAPOS generado exitosamente');
+            if (response.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+                const contenidoIA = response.data.candidates[0].content.parts[0].text;
+                const informeFormateado = formatearInformeIAPOS(contenidoIA, stats, tipoInforme, userPrompt);
                 
-                // Opcional: agregar CSS inline básico para colores
-                const informeConEstilo = informe
-                    .replace(/IAPOS/g, '<span style="color: #0066CC; font-weight: bold;">IAPOS</span>')
-                    .replace(/Día Preventivo/g, '<span style="color: #0088CC;">Día Preventivo</span>')
-                    .replace(/(\d+\.\d+%|\d+%)/g, '<span style="color: #CC0000; font-weight: bold;">$1</span>');
-                
-                return res.json({ 
-                    informe: informeConEstilo,
-                    modelo: 'gemini-1.5-flash',
-                    formato: 'estilo-IAPOS'
-                });
+                console.log('✅ Informe IAPOS formateado exitosamente');
+                return res.json({ informe: informeFormateado });
             }
 
         } catch (error) {
-            console.error('❌ Error con Gemini:', error.message);
-            
-            // Informe automático con estilo IAPOS
-            const fechaActual = new Date().toLocaleDateString('es-AR');
-            const informeAutomatico = `
-🏥 **IAPOS** <div style="text-align: right; float: right;">${fechaActual}</div>
-<div style="clear: both;"></div>
-
-## <span style="color: #0066CC;">Informe de Evaluación y Seguimiento del Día Preventivo</span>
-
----
-
-### 📊 **CAPÍTULO 1: RESUMEN EJECUTIVO**
-**Total de personas atendidas:** ${totalCasos}
-
-### ❤️ **CAPÍTULO 2: SALUD CARDIOVASCULAR**
-• **Diabetes:** ${diabetes} casos <span style="color: #CC0000;">(${((diabetes/totalCasos)*100).toFixed(1)}%)</span>
-• **Hipertensión arterial:** ${hipertension} casos <span style="color: #CC0000;">(${((hipertension/totalCasos)*100).toFixed(1)}%)</span>
-• **Dislipemias:** ${dislipemias} casos <span style="color: #CC0000;">(${((dislipemias/totalCasos)*100).toFixed(1)}%)</span>
-
-### 🍎 **CAPÍTULO 3: ESTADO NUTRICIONAL**
-• **Obesidad:** ${obesidad} casos <span style="color: #CC0000;">(${((obesidad/totalCasos)*100).toFixed(1)}%)</span>
-• **Sobrepeso:** ${sobrepeso} casos <span style="color: #CC0000;">(${((sobrepeso/totalCasos)*100).toFixed(1)}%)</span>
-
-### 🚭 **CAPÍTULO 4: HÁBITOS DE VIDA**
-• **Tabaquismo:** ${tabaquismo} casos <span style="color: #CC0000;">(${((tabaquismo/totalCasos)*100).toFixed(1)}%)</span>
-
-### 💡 **CAPÍTULO 5: RECOMENDACIONES**
-1. Fortalecer programas de prevención cardiovascular
-2. Implementar seguimiento personalizado
-3. Desarrollar estrategias nutricionales
-4. Promover cesación tabáquica
-
----
-
-<span style="color: #0088CC;">*Informe generado automáticamente - Programa Día Preventivo IAPOS*</span>
-`;
-
-            return res.json({ 
-                informe: informeAutomatico,
-                aviso: "Informe automático con estilo IAPOS"
-            });
+            console.error('❌ Error con IA:', error.message);
+            const informeAutomatico = generarInformeAutomatico(stats, userPrompt);
+            return res.json({ informe: informeAutomatico });
         }
 
     } catch (error) {
         console.error('💥 Error general:', error);
-        return res.status(500).json({ 
-            error: 'Error interno del servidor',
-            message: error.message
-        });
+        return res.status(500).json({ error: 'Error interno', message: error.message });
     }
 });
+
+function formatearInformeIAPOS(contenidoIA, stats, tipoInforme, userPrompt) {
+    const fecha = new Date().toLocaleDateString('es-AR');
+    
+    return `
+<!-- ENCABEZADO IAPOS -->
+<div style="font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto;">
+    <table width="100%" style="border-bottom: 3px solid #0066CC; margin-bottom: 20px;">
+        <tr>
+            <td width="50%">
+                <div style="color: #0066CC; font-size: 28px; font-weight: bold;">🏥 IAPOS</div>
+                <div style="color: #0088CC; font-size: 18px; margin-top: 5px;">Informe de Evaluación - Día Preventivo</div>
+            </td>
+            <td width="50%" style="text-align: right;">
+                <div style="color: #666; font-size: 14px;">${fecha}</div>
+                <div style="color: #0066CC; font-size: 12px; margin-top: 5px;">Solicitud: "${userPrompt}"</div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- PRINCIPALES INDICADORES -->
+    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+        <h3 style="color: #0066CC; margin-top: 0;">📊 PRINCIPALES INDICADORES</h3>
+        <table width="100%" style="font-size: 14px;">
+            <tr>
+                <td width="33%" style="text-align: center; border-right: 1px solid #ddd;">
+                    <div style="color: #CC0000; font-size: 24px; font-weight: bold;">${stats.totalCasos}</div>
+                    <div style="color: #666;">Personas atendidas</div>
+                </td>
+                <td width="33%" style="text-align: center; border-right: 1px solid #ddd;">
+                    <div style="color: #CC0000; font-size: 24px; font-weight: bold;">${stats.prevalenciaDiabetes}%</div>
+                    <div style="color: #666;">Prevalencia diabetes</div>
+                </td>
+                <td width="33%" style="text-align: center;">
+                    <div style="color: #CC0000; font-size: 24px; font-weight: bold;">${stats.prevalenciaHipertension}%</div>
+                    <div style="color: #666;">Prevalencia HTA</div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- CONTENIDO GENERADO POR IA -->
+    <div style="line-height: 1.6;">
+        ${contenidoIA.replace(/\n/g, '<br>')}
+    </div>
+
+    <!-- PIE DE PÁGINA -->
+    <div style="margin-top: 30px; padding-top: 15px; border-top: 2px solid #0066CC; color: #666; font-size: 12px;">
+        <strong>Programa Día Preventivo IAPOS</strong> | Informe generado automáticamente | ${fecha}
+    </div>
+</div>
+`;
+}
+function calcularEstadisticasCompletas(data) {
+    const total = data.length;
+    if (total === 0) return { totalCasos: 0 };
+    
+    // Calcular estadísticas COMPLETAS
+    const mujeres = data.filter(r => normalizeString(r.Sexo) === 'femenino').length;
+    const hombres = data.filter(r => normalizeString(r.Sexo) === 'masculino').length;
+    const adultos = data.filter(r => parseInt(r.Edad) >= 18).length;
+    const pediatrico = data.filter(r => parseInt(r.Edad) < 18).length;
+    
+    // Calcular edades
+    const edades = data.map(r => parseInt(r.Edad)).filter(edad => !isNaN(edad) && edad > 0);
+    const edadPromedio = edades.length > 0 ? (edades.reduce((a, b) => a + b, 0) / edades.length).toFixed(1) : 'N/D';
+    const edadMin = edades.length > 0 ? Math.min(...edades) : 'N/D';
+    const edadMax = edades.length > 0 ? Math.max(...edades) : 'N/D';
+
+    return {
+        totalCasos: total,
+        totalMujeres: mujeres,
+        totalHombres: hombres,
+        adultos: adultos,
+        pediatrico: pediatrico,
+        edadPromedio: edadPromedio,
+        edadMinima: edadMin,
+        edadMaxima: edadMax,
+        
+        // Prevalencias
+        prevalenciaDiabetes: ((data.filter(r => normalizeString(r.Diabetes) === 'presenta').length / total) * 100).toFixed(1),
+        prevalenciaHipertension: ((data.filter(r => normalizeString(r['Presión Arterial']).includes('hipertens')).length / total) * 100).toFixed(1),
+        prevalenciaDislipemias: ((data.filter(r => normalizeString(r.Dislipemias) === 'presenta').length / total) * 100).toFixed(1),
+        prevalenciaTabaquismo: ((data.filter(r => normalizeString(r.Tabaco) === 'fuma').length / total) * 100).toFixed(1),
+        prevalenciaObesidad: ((data.filter(r => normalizeString(r.IMC).includes('obesidad')).length / total) * 100).toFixed(1),
+        prevalenciaSobrepeso: ((data.filter(r => normalizeString(r.IMC).includes('sobrepeso')).length / total) * 100).toFixed(1),
+        
+        // Enfermedades crónicas
+        enfermedadesCronicas: data.filter(r => 
+            normalizeString(r.Diabetes) === 'presenta' ||
+            normalizeString(r['Presión Arterial']).includes('hipertens') ||
+            normalizeString(r.Dislipemias) === 'presenta'
+        ).length,
+        
+        // Datos adicionales para IA
+        distribucionSexo: {
+            mujeres: mujeres,
+            hombres: hombres,
+            porcentajeMujeres: ((mujeres / total) * 100).toFixed(1),
+            porcentajeHombres: ((hombres / total) * 100).toFixed(1)
+        },
+        
+        distribucionEdad: {
+            adultos: adultos,
+            pediatrico: pediatrico,
+            porcentajeAdultos: ((adultos / total) * 100).toFixed(1),
+            porcentajePediatrico: ((pediatrico / total) * 100).toFixed(1)
+        }
+    };
+}
+
+function generarInformeAutomatico(stats, userPrompt) {
+    return formatearInformeIAPOS(`
+<h3 style="color: #0066CC;">📋 INFORME AUTOMÁTICO IAPOS</h3>
+<p>El sistema ha procesado <strong>${stats.totalCasos} casos</strong> del Programa Día Preventivo.</p>
+
+<h4 style="color: #0088CC;">🔍 Hallazgos Principales:</h4>
+<ul>
+    <li>Prevalencia de diabetes: <strong style="color: #CC0000;">${stats.prevalenciaDiabetes}%</strong></li>
+    <li>Prevalencia de hipertensión: <strong style="color: #CC0000;">${stats.prevalenciaHipertension}%</strong></li>
+</ul>
+
+<h4 style="color: #0088CC;">💡 Recomendaciones Generales:</h4>
+<ol>
+    <li>Fortalecer screening cardiovascular</li>
+    <li>Implementar seguimiento de casos críticos</li>
+    <li>Desarrollar programas educativos continuos</li>
+</ol>
+
+<p style="color: #666;"><em>Para análisis detallados con IA, contactar al administrador.</em></p>
+`, stats, 'completo', userPrompt);
+}
 async function startServer() {
     await loadTokens();
     await cargarContexto(); // Carga el contexto del programa antes de iniciar

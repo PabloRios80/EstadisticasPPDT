@@ -1,3 +1,251 @@
+// Variable global para almacenar los datos filtrados
+// **Asegúrate de que esta variable esté disponible globalmente y se actualice con los filtros.**
+let dashboardData = [];
+let datosFiltrados = []; 
+// Asegúrate de que esta variable 'dashboardData' esté declarada globalmente y se actualice con los filtros.
+// let dashboardData = [];
+
+function generarInformeVisualCompleto() {
+    Swal.fire({
+        title: 'Generando Informe Completo',
+        html: 'Calculando y preparando los datos para impresión...',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    const fechaGeneracion = new Date().toLocaleDateString('es-AR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    
+    // Usa los datos filtrados disponibles globalmente
+    const data = dashboardData;
+        
+    // --- CÁLCULO DE INDICADORES DINÁMICOS ---
+    const indicadores = {
+        diasPreventivos: data.length,
+        sexo: {
+            femenino: data.filter(d => d.Sexo === 'F').length,
+            masculino: data.filter(d => d.Sexo === 'M').length,
+        },
+        edad: {
+            'Menores de 18': data.filter(d => d.Edad < 18).length,
+            '18 a 30': data.filter(d => d.Edad >= 18 && d.Edad < 30).length,
+            '30 a 50': data.filter(d => d.Edad >= 30 && d.Edad < 50).length,
+            'Mayores de 50': data.filter(d => d.Edad >= 50).length,
+        },
+        altoRiesgo: data.filter(d => d.Alto_Riesgo === 'Sí').length,
+        enfermedades: {
+            diabetes: data.filter(d => d.Enfermedad_Cronica === 'Sí' && d.Patologia === 'Diabetes').length,
+            hipertension: data.filter(d => d.Enfermedad_Cronica === 'Sí' && d.Patologia === 'Hipertensión Arterial').length,
+            dislipemias: data.filter(d => d.Enfermedad_Cronica === 'Sí' && d.Patologia === 'Dislipemia').length,
+            fumadores: data.filter(d => d.Habitos?.includes('Tabaquismo')).length,
+            obesos: data.filter(d => d.IMC > 30).length,
+        },
+        cancerMama: data.filter(d => d.Mamografia === 'Sí' || d.Ecografia_Mamaria === 'Sí').length,
+        cancerCervico: data.filter(d => d.Pap_Test === 'Sí' || d.HPV === 'Sí').length,
+        cancerColon: data.filter(d => d.SOMF === 'Sí' || d.Colonoscopia === 'Sí').length,
+        cancerProstata: data.filter(d => d.Sexo === 'M' && d.Psa === 'Sí').length,
+        vih: data.filter(d => d.Screening_VIH === 'Sí').length,
+        hepatitisB: data.filter(d => d.Screening_Hepatitis_B === 'Sí').length,
+        hepatitisC: data.filter(d => d.Screening_Hepatitis_C === 'Sí').length,
+        vdrl: data.filter(d => d.Screening_VDRL === 'Sí').length,
+        chagas: data.filter(d => d.Screening_Chagas === 'Sí').length,
+        saludBucal: data.filter(d => d.Salud_Bucal_Riesgo === 'Sí').length,
+        saludRenal: data.filter(d => d.Salud_Renal_Patologico === 'Sí').length,
+        agudezaVisual: data.filter(d => d.Agudeza_Visual_Alterada === 'Sí').length,
+        depresion: data.filter(d => d.Salud_Mental_Depresion === 'Sí').length,
+        epoc: data.filter(d => d.Screening_EPOC === 'Sí').length,
+    };
+    
+    // Usar la plantilla HTML del servidor pero con datos calculados
+    const informeHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Informe Completo IAPOS - Día Preventivo</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: white; color: #333; line-height: 1.6; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #0066CC; }
+        .logo { color: #0066CC; font-size: 28px; font-weight: bold; }
+        .fecha { color: #666; font-size: 16px; }
+        .titulo-principal { color: #0066CC; font-size: 24px; margin: 25px 0; text-align: center; font-weight: bold; }
+        .contenedor-burbujas { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin: 30px 0; }
+        .burbuja { background: #f8f9fa; padding: 25px; border-radius: 12px; text-align: center; border-left: 5px solid; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .burbuja-total { border-left-color: #CC0000; }
+        .burbuja-adultos { border-left-color: #0066CC; }
+        .burbuja-pediatrico { border-left-color: #00AAFF; }
+        .burbuja-cronicas { border-left-color: #FF6600; }
+        .burbuja-riesgo { border-left-color: #CC0000; }
+        .numero { font-size: 32px; font-weight: bold; margin: 10px 0; }
+        .numero-total { color: #CC0000; }
+        .numero-adultos { color: #0066CC; }
+        .numero-pediatrico { color: #00AAFF; }
+        .label { color: #666; font-size: 14px; margin-bottom: 8px; font-weight: bold; }
+        .tabla-capitulos { width: 100%; border-collapse: collapse; margin: 25px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1); font-size: 14px; }
+        .tabla-capitulos th { background: #0066CC; color: white; padding: 15px; text-align: left; font-weight: bold; }
+        .tabla-capitulos td { padding: 12px; border-bottom: 1px solid #e0e0e0; }
+        .tabla-capitulos tr:hover { background: #f0f8ff; }
+        .porcentaje { color: #CC0000; font-weight: bold; }
+        .seccion { margin: 40px 0; padding: 25px; background: #f8f9fa; border-radius: 10px; border-left: 5px solid #0066CC; }
+        .titulo-seccion { color: #0066CC; font-size: 20px; margin-bottom: 15px; font-weight: bold; }
+        .botones-exportacion { margin: 30px 0; text-align: center; }
+        .btn-exportar { background: linear-gradient(135deg, #0066CC, #0088CC); color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: bold; margin: 0 10px; box-shadow: 0 2px 6px rgba(0,102,204,0.2); }
+        .btn-exportar:hover { background: linear-gradient(135deg, #0088CC, #00AAFF); box-shadow: 0 4px 8px rgba(0,102,204,0.3); }
+        .footer { margin-top: 50px; padding-top: 20px; border-top: 2px solid #0066CC; color: #666; text-align: center; font-size: 12px; }
+        @media print { body { margin: 20px; } .header { border-bottom: 2px solid #0066CC; } .burbuja { box-shadow: none; border: 1px solid #ddd; } .tabla-capitulos { box-shadow: none; } .botones-exportacion { display: none; } }
+    </style>
+</head>
+<body>
+        <div class="header">
+        <div class="logo">🏥 IAPOS - Instituto Autárquico Provincial de Obra Social</div>
+        <div class="fecha">${fechaGeneracion}</div>
+    </div>
+    
+    <div class="titulo-principal">INFORME COMPLETO - PROGRAMA DÍA PREVENTIVO</div>
+    
+        <div class="botones-exportacion">
+        <button class="btn-exportar" onclick="window.print()">🖨️ Imprimir Informe</button>
+        <button class="btn-exportar" onclick="alert('Esta función no está disponible en este momento. Utilice la opción de impresión para guardar como PDF.')">📄 Exportar a PDF</button>
+    </div>
+    
+        <div class="contenedor-burbujas">
+                <div class="burbuja burbuja-total">
+            <div class="label">TOTAL DE CASOS</div>
+            <div class="numero numero-total">${indicadores.diasPreventivos}</div>
+            <div>👩 ${indicadores.sexo.femenino} | 👨 ${indicadores.sexo.masculino}</div>
+        </div>
+        
+                <div class="burbuja burbuja-adultos">
+            <div class="label">POBLACIÓN ADULTA</div>
+            <div class="numero numero-adultos">${indicadores.edad['18 a 30'] + indicadores.edad['30 a 50'] + indicadores.edad['Mayores de 50']}</div>
+            <div>👩 ${data.filter(d => d.Sexo === 'F' && d.Edad >= 18).length} | 👨 ${data.filter(d => d.Sexo === 'M' && d.Edad >= 18).length}</div>
+        </div>
+        
+                <div class="burbuja burbuja-pediatrico">
+            <div class="label">POBLACIÓN PEDIÁTRICA</div>
+            <div class="numero numero-pediatrico">${indicadores.edad['Menores de 18']}</div>
+            <div>👧 ${data.filter(d => d.Sexo === 'F' && d.Edad < 18).length} | 👦 ${data.filter(d => d.Sexo === 'M' && d.Edad < 18).length}</div>
+        </div>
+        
+                <div class="burbuja burbuja-cronicas">
+            <div class="label">ENFERMEDADES CRÓNICAS</div>
+            <div class="numero">${indicadores.enfermedades.diabetes + indicadores.enfermedades.hipertension + indicadores.enfermedades.dislipemias}</div>
+            <div>${((indicadores.enfermedades.diabetes + indicadores.enfermedades.hipertension + indicadores.enfermedades.dislipemias) / indicadores.diasPreventivos * 100).toFixed(1)}% de prevalencia</div>
+        </div>
+        
+                <div class="burbuja burbuja-riesgo">
+            <div class="label">ALTO RIESGO CARDIOVASCULAR</div>
+            <div class="numero">${indicadores.altoRiesgo}</div>
+            <div>${((indicadores.altoRiesgo / indicadores.diasPreventivos) * 100).toFixed(1)}% de la población</div>
+        </div>
+    </div>
+
+        <div class="seccion">
+        <div class="titulo-seccion">❤️ EVALUACIÓN DE RIESGO CARDIOVASCULAR Y ENFERMEDADES CRÓNICAS</div>
+        <table class="tabla-capitulos">
+            <thead>
+                <tr>
+                    <th>Indicador</th>
+                    <th>Total</th>
+                    <th>Prevalencia</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Diabetes</td><td>${indicadores.enfermedades.diabetes}</td><td class="porcentaje">${((indicadores.enfermedades.diabetes / indicadores.diasPreventivos) * 100).toFixed(1)}%</td></tr>
+                <tr><td>Hipertensión Arterial</td><td>${indicadores.enfermedades.hipertension}</td><td class="porcentaje">${((indicadores.enfermedades.hipertension / indicadores.diasPreventivos) * 100).toFixed(1)}%</td></tr>
+                <tr><td>Dislipemias</td><td>${indicadores.enfermedades.dislipemias}</td><td class="porcentaje">${((indicadores.enfermedades.dislipemias / indicadores.diasPreventivos) * 100).toFixed(1)}%</td></tr>
+                <tr><td>Tabaquismo</td><td>${indicadores.enfermedades.fumadores}</td><td class="porcentaje">${((indicadores.enfermedades.fumadores / indicadores.diasPreventivos) * 100).toFixed(1)}%</td></tr>
+                <tr><td>Obesidad</td><td>${indicadores.enfermedades.obesos}</td><td class="porcentaje">${((indicadores.enfermedades.obesos / indicadores.diasPreventivos) * 100).toFixed(1)}%</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+        <div class="seccion">
+        <div class="titulo-seccion">🎗️ PREVENCIÓN DE CÁNCER</div>
+        <table class="tabla-capitulos">
+            <thead>
+                <tr>
+                    <th>Tipo de Cáncer</th>
+                    <th>Casos Detectados</th>
+                    <th>Prevalencia</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Cáncer de Mama</td><td>${indicadores.cancerMama}</td><td class="porcentaje">${((indicadores.cancerMama / indicadores.diasPreventivos) * 100).toFixed(1)}%</td></tr>
+                <tr><td>Cáncer Cervicouterino</td><td>${indicadores.cancerCervico}</td><td class="porcentaje">${((indicadores.cancerCervico / indicadores.diasPreventivos) * 100).toFixed(1)}%</td></tr>
+                <tr><td>Cáncer de Colon</td><td>${indicadores.cancerColon}</td><td class="porcentaje">${((indicadores.cancerColon / indicadores.diasPreventivos) * 100).toFixed(1)}%</td></tr>
+                <tr><td>Cáncer de Próstata</td><td>${indicadores.cancerProstata}</td><td class="porcentaje">${((indicadores.cancerProstata / indicadores.diasPreventivos) * 100).toFixed(1)}%</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+        <div class="seccion">
+        <div class="titulo-seccion">🦠 ENFERMEDADES INFECCIOSAS</div>
+        <table class="tabla-capitulos">
+            <thead>
+                <tr>
+                    <th>Enfermedad</th>
+                    <th>Casos Detectados</th>
+                    <th>Prevalencia</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>VIH/SIDA</td><td>${indicadores.vih}</td><td class="porcentaje">${((indicadores.vih / indicadores.diasPreventivos) * 100).toFixed(1)}%</td></tr>
+                <tr><td>Hepatitis B</td><td>${indicadores.hepatitisB}</td><td class="porcentaje">${((indicadores.hepatitisB / indicadores.diasPreventivos) * 100).toFixed(1)}%</td></tr>
+                <tr><td>Hepatitis C</td><td>${indicadores.hepatitisC}</td><td class="porcentaje">${((indicadores.hepatitisC / indicadores.diasPreventivos) * 100).toFixed(1)}%</td></tr>
+                <tr><td>Sífilis (VDRL)</td><td>${indicadores.vdrl}</td><td class="porcentaje">${((indicadores.vdrl / indicadores.diasPreventivos) * 100).toFixed(1)}%</td></tr>
+                <tr><td>Chagas</td><td>${indicadores.chagas}</td><td class="porcentaje">${((indicadores.chagas / indicadores.diasPreventivos) * 100).toFixed(1)}%</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+        <div class="seccion">
+        <div class="titulo-seccion">⚕️ OTROS TEMAS DE SALUD</div>
+        <table class="tabla-capitulos">
+            <thead>
+                <tr>
+                    <th>Indicador</th>
+                    <th>Casos</th>
+                    <th>Prevalencia</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Salud Bucal</td><td>${indicadores.saludBucal}</td><td class="porcentaje">${((indicadores.saludBucal / indicadores.diasPreventivos) * 100).toFixed(1)}%</td></tr>
+                <tr><td>Salud Renal</td><td>${indicadores.saludRenal}</td><td class="porcentaje">${((indicadores.saludRenal / indicadores.diasPreventivos) * 100).toFixed(1)}%</td></tr>
+                <tr><td>Agudeza Visual</td><td>${indicadores.agudezaVisual}</td><td class="porcentaje">${((indicadores.agudezaVisual / indicadores.diasPreventivos) * 100).toFixed(1)}%</td></tr>
+                <tr><td>Depresión</td><td>${indicadores.depresion}</td><td class="porcentaje">${((indicadores.depresion / indicadores.diasPreventivos) * 100).toFixed(1)}%</td></tr>
+                <tr><td>EPOC</td><td>${indicadores.epoc}</td><td class="porcentaje">${((indicadores.epoc / indicadores.diasPreventivos) * 100).toFixed(1)}%</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+        <div class="footer">
+        <strong>Programa Día Preventivo IAPOS</strong> | Informe generado el ${fechaGeneracion}
+    </div>
+</body>
+</html>
+    `;
+
+    Swal.close();
+    
+    // Abrir la nueva ventana y escribir el contenido del informe
+    const ventanaImpresion = window.open('', '_blank');
+    ventanaImpresion.document.write(informeHTML);
+    ventanaImpresion.document.close();
+    
+    // Esperar un momento para asegurar que el DOM esté listo antes de imprimir
+    ventanaImpresion.onload = function() {
+        setTimeout(() => {
+            ventanaImpresion.print();
+        }, 500);
+    };
+}
 document.addEventListener('DOMContentLoaded', () => {
     // Función para normalizar cadenas (eliminar acentos y convertir a minúsculas)
     function normalizeString(str) {
@@ -49,8 +297,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         { name: "ecografía", column: "Cáncer mama - Eco mamaria", value: "Patologico", parentesis: "detectados por ecografía", fixedCount: 0 }
                     ]
                 },
-                { name: "Cáncer Cervicouterino", type: "multi-or", value: "Patologico", columns: ["Cáncer cérvico uterino - HPV", "Cáncer cérvico uterino - PAP"] },
-                { name: "Cáncer de Colon", type: "multi-or", value: "Patologico", columns: ["SOMF", "Cáncer colon - Colonoscopía"] },
+                { 
+                    name: "Cáncer cervicouterino", 
+                    subtopics: [
+                        { name: "HPV", column: "Cáncer cérvico uterino - HPV", value: "Patologico", parentesis: "riesgo elevado por HPV (+) " },
+                        { name: "PAP", column: "Cáncer cérvico uterino - PAP", value: "Patologico", parentesis: "detectados por PAP" }
+                    ]
+                },
+                { 
+                    name: "Cáncer de Colon", 
+                    subtopics: [
+                        { name: "SOMF", column: "SOMF", value: "Patologico", parentesis: "riesgo elevado por SOMF (+) " },
+                        { name: "Colonoscopia", column: "Cáncer colon - Colonoscopía", value: "Patologico", parentesis: "detectados por Colonoscopia" }
+                    ]
+                },
                 { name: "Cáncer de Próstata", column: "Próstata - PSA", value: "Patologico" }
             ]
         },
@@ -109,7 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const contenedorInforme = document.getElementById('contenedor-informe');
     const exportarPdfBtn = document.getElementById('exportar-pdf-btn');
     const imprimirBtn = document.getElementById('imprimir-btn');
-
+    const filtroTotalBtn = document.getElementById('filtro-total');
     const filtroAdultosBtn = document.getElementById('filtro-adultos');
     const filtroPediatricoBtn = document.getElementById('filtro-pediatrico');
     
@@ -129,6 +389,12 @@ document.addEventListener('DOMContentLoaded', () => {
     async function initializeDashboard() {
         updateDate();
         await fetchDataAndSetButtonState('Adultos');
+
+        filtroTotalBtn.addEventListener('click', () => {
+            currentFilterType = 'Total';
+            fetchDataAndSetButtonState('Total');
+        });
+
 
         filtroAdultosBtn.addEventListener('click', () => {
             currentFilterType = 'Adultos';
@@ -201,55 +467,75 @@ document.addEventListener('DOMContentLoaded', () => {
             informeIaSection.classList.remove('hidden');
         });
     }
-
     async function fetchData(tipo) {
-        try {
-            const [dataResponse, indicadoresResponse, camposResponse] = await Promise.all([
-                fetch(`/obtener-datos-completos?tipo=${tipo}`),
-                fetch(`/obtener-indicadores-fijos?tipo=${tipo}`),
-                fetch('/obtener-campos')
-            ]);
-            
-            allData = (await dataResponse.json()).map(row => {
-                row.Edad = parseEdad(row.Edad);
-                return row;
-            });
-            fixedIndicators = await indicadoresResponse.json();
-            const campos = await camposResponse.json();
-
-            selectorCampos.innerHTML = '';
-            campos.forEach(campo => {
-                const option = document.createElement('option');
-                option.value = campo;
-                option.textContent = campo;
-                selectorCampos.appendChild(option);
-            });
-
-            renderFixedIndicators(fixedIndicators);
-            currentFilteredData = [...allData];
-            buildDashboard(allData);
-            buildHealthChaptersMenu();
-
-        } catch (error) {
-            console.error('Error al cargar la aplicación:', error);
-            document.body.innerHTML = '<p class="text-red-600 text-center text-xl mt-10">Error al cargar la aplicación. Por favor, reinicia el servidor.</p>';
-        }
-    }
-
-    async function fetchDataAndSetButtonState(tipo) {
-        await fetchData(tipo);
-        if (tipo.toLowerCase() === 'adultos') {
-            filtroAdultosBtn.classList.remove('bg-gray-300', 'hover:bg-gray-400', 'text-gray-800');
-            filtroAdultosBtn.classList.add('bg-blue-600', 'text-white');
-            filtroPediatricoBtn.classList.add('bg-gray-300', 'hover:bg-gray-400', 'text-gray-800');
-            filtroPediatricoBtn.classList.remove('bg-blue-600', 'text-white');
+    try {
+        let indicadoresUrl;
+        if (tipo.toLowerCase() === 'total') {
+            // Llama a la URL sin el filtro de tipo para obtener el total de indicadores.
+            indicadoresUrl = '/obtener-indicadores-fijos';
         } else {
-            filtroPediatricoBtn.classList.remove('bg-gray-300', 'hover:bg-gray-400', 'text-gray-800');
-            filtroPediatricoBtn.classList.add('bg-blue-600', 'text-white');
-            filtroAdultosBtn.classList.add('bg-gray-300', 'hover:bg-gray-400', 'text-gray-800');
-            filtroAdultosBtn.classList.remove('bg-blue-600', 'text-white');
+            // Mantiene el comportamiento actual para 'adultos' y 'pediatrico'.
+            indicadoresUrl = `/obtener-indicadores-fijos?tipo=${tipo}`;
         }
+
+        const [dataResponse, indicadoresResponse, camposResponse] = await Promise.all([
+            fetch(`/obtener-datos-completos?tipo=${tipo}`),
+            fetch(indicadoresUrl), // Usa la URL corregida aquí
+            fetch('/obtener-campos')
+        ]);
+        
+        allData = (await dataResponse.json()).map(row => {
+            row.Edad = parseEdad(row.Edad);
+            return row;
+        });
+        
+        dashboardData = [...allData];
+        
+        fixedIndicators = await indicadoresResponse.json();
+        const campos = await camposResponse.json();
+
+        selectorCampos.innerHTML = '';
+        campos.forEach(campo => {
+            const option = document.createElement('option');
+            option.value = campo;
+            option.textContent = campo;
+            selectorCampos.appendChild(option);
+        });
+
+        renderFixedIndicators(fixedIndicators);
+        currentFilteredData = [...allData];
+        buildDashboard(allData);
+        buildHealthChaptersMenu();
+
+    } catch (error) {
+        console.error('Error al cargar la aplicación:', error);
+        document.body.innerHTML = '<p class="text-red-600 text-center text-xl mt-10">Error al cargar la aplicación. Por favor, reinicia el servidor.</p>';
     }
+}
+async function fetchDataAndSetButtonState(tipo) {
+    await fetchData(tipo);
+    
+    // Referencias a los botones para un código más limpio
+    const filtroTotalBtn = document.getElementById('filtro-total');
+    const filtroAdultosBtn = document.getElementById('filtro-adultos');
+    const filtroPediatricoBtn = document.getElementById('filtro-pediatrico');
+
+    // Función auxiliar para aplicar/quitar clases
+    const setButtonState = (button, isActive) => {
+        if (isActive) {
+            button.classList.remove('bg-gray-300', 'hover:bg-gray-400', 'text-gray-800');
+            button.classList.add('bg-blue-600', 'text-white');
+        } else {
+            button.classList.remove('bg-blue-600', 'text-white');
+            button.classList.add('bg-gray-300', 'hover:bg-gray-400', 'text-gray-800');
+        }
+    };
+    
+    // Aplicar el estado a cada botón basándose en el 'tipo' actual
+    setButtonState(filtroTotalBtn, tipo.toLowerCase() === 'total');
+    setButtonState(filtroAdultosBtn, tipo.toLowerCase() === 'adultos');
+    setButtonState(filtroPediatricoBtn, tipo.toLowerCase() === 'pediátrico');
+}
 
     function renderFixedIndicators(data) {
         document.getElementById('total-casos').textContent = data.diasPreventivos;
@@ -317,26 +603,30 @@ document.addEventListener('DOMContentLoaded', () => {
             filtrosAplicadosDiv.appendChild(filtroDiv);
         });
     }
-
-    function applyFiltersAndRenderDashboard() {
-        const filters = getFiltersFromUI();
-        const filteredData = allData.filter(row => {
-            if (filters.length === 0) return true;
-            return filters.every(filter => {
-                if (filter.field === 'Edad') {
-                    const edad = row.Edad;
-                    return edad >= filter.value.desde && edad <= filter.value.hasta;
-                } else if (filter.operator === 'in') {
-                    const valueInRow = row[filter.field];
-                    if (!valueInRow) return false;
-                    return filter.value.includes(valueInRow);
-                }
-                return false;
-            });
+function applyFiltersAndRenderDashboard() {
+    const filters = getFiltersFromUI();
+    const filteredData = allData.filter(row => {
+        if (filters.length === 0) return true;
+        return filters.every(filter => {
+            if (filter.field === 'Edad') {
+                const edad = row.Edad;
+                return edad >= filter.value.desde && edad <= filter.value.hasta;
+            } else if (filter.operator === 'in') {
+                const valueInRow = row[filter.field];
+                if (!valueInRow) return false;
+                return filter.value.includes(valueInRow);
+            }
+            return false;
         });
-        document.getElementById('total-casos').textContent = filteredData.length;
-        buildDashboard(filteredData);
-    }
+    });
+
+    // ✨ CORRECCIÓN: Aquí es donde debe ir la asignación. ✨
+    // Ahora 'filteredData' ya contiene los datos filtrados y se puede asignar a la variable global.
+    dashboardData = filteredData;
+
+    document.getElementById('total-casos').textContent = filteredData.length;
+    buildDashboard(filteredData);
+}
     
     function getFiltersFromUI() {
         const filters = [];
@@ -589,6 +879,107 @@ document.addEventListener('DOMContentLoaded', () => {
             generarInformeBtn.disabled = false;
         }
     }
+
+// Función para generar informe completo
+function generarInformeCompleto() {
+    console.log('📋 Generando informe completo...');
+    
+    // Deshabilitar botón y mostrar loading
+    const boton = document.getElementById('btnGenerarInforme');
+    const textoOriginal = boton.innerHTML;
+    boton.innerHTML = '⏳ Generando...';
+    boton.classList.add('btn-loading');
+    boton.disabled = true;
+
+    // Mostrar alerta de carga
+    Swal.fire({
+        title: 'Generando informe completo',
+        html: 'Estamos procesando todos los datos y preparando su informe...<br><div style="margin-top:20px"><div class="swal2-loader"></div></div>',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        willOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    // Obtener todos los datos
+    fetch('/obtener-datos-completos')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Error al obtener datos');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('📊 Datos obtenidos:', data.length, 'registros');
+            
+            // Enviar solicitud para generar el informe
+            return fetch('/generar-informe', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    data: data,
+                    userPrompt: 'Generar informe completo con todos los capítulos y datos estadísticos del Programa Día Preventivo',
+                    tipoInforme: 'completo'
+                })
+            });
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Error al generar informe');
+            }
+            return response.json();
+        })
+        .then(resultado => {
+            // Cerrar loading y restaurar botón
+            Swal.close();
+            boton.innerHTML = textoOriginal;
+            boton.classList.remove('btn-loading');
+            boton.disabled = false;
+
+            if (resultado.error) {
+                Swal.fire('Error', resultado.error, 'error');
+                return;
+            }
+
+            // Mostrar el informe en una ventana nueva
+            const ventanaInforme = window.open('', '_blank');
+            ventanaInforme.document.write(resultado.informe);
+            ventanaInforme.document.close();
+
+            // Mensaje de éxito
+            Swal.fire({
+                title: '✅ Informe Generado',
+                text: 'El informe completo se ha generado exitosamente',
+                icon: 'success',
+                confirmButtonText: 'Abrir Informe',
+                showCancelButton: true,
+                cancelButtonText: 'Cerrar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    ventanaInforme.focus();
+                }
+            });
+
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            
+            // Restaurar botón
+            boton.innerHTML = textoOriginal;
+            boton.classList.remove('btn-loading');
+            boton.disabled = false;
+            
+            Swal.fire(
+                'Error', 
+                'No se pudo generar el informe: ' + error.message, 
+                'error'
+            );
+        });
+}
+
 
     function exportReportToPdf() {
         const { jsPDF } = window.jspdf;
