@@ -29,8 +29,8 @@ function generarInformeVisualCompleto() {
     const indicadores = {
         diasPreventivos: data.length,
         sexo: {
-            femenino: data.filter(d => d.Sexo === 'F').length,
-            masculino: data.filter(d => d.Sexo === 'M').length,
+            femenino: data.filter(d => normalizeString(d['Sexo']) === 'femenino').length,
+        masculino: data.filter(d => normalizeString(d['Sexo']) === 'masculino').length,
         },
         edad: {
             'Menores de 18': data.filter(d => d.Edad < 18).length,
@@ -385,31 +385,52 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     initializeDashboard();
+function updateDashboardMetrics(filteredData) {
+    // Si no hay datos, muestra 0 para evitar errores.
+    if (!filteredData || filteredData.length === 0) {
+        document.getElementById('total-casos').textContent = 0;
+        document.getElementById('total-mujeres').textContent = '0 (0.0%)';
+        document.getElementById('total-varones').textContent = '0 (0.0%)';
+        document.getElementById('total-cronicas').textContent = 0;
+        document.getElementById('total-alto-riesgo').textContent = 0;
+        return; // Termina la función aquí.
+    }
 
-    function updateDashboardMetrics(filteredData) {
-    const totalCasos = filteredData.length;
+    const totalCasos = filteredData.length;
 
-    const totalMujeres = filteredData.filter(d => d.Sexo === 'F').length;
-    const totalVarones = filteredData.filter(d => d.Sexo === 'M').length;
-    
-    // Calcula las enfermedades crónicas. Es más preciso iterar sobre el array de datos filtrados.
-    const totalEnfCronicas = filteredData.filter(d =>
-        (d.Enfermedad_Cronica === 'Sí' && d.Patologia === 'Diabetes') ||
-        (d.Enfermedad_Cronica === 'Sí' && d.Patologia === 'Hipertensión Arterial') ||
-        (d.Enfermedad_Cronica === 'Sí' && d.Patologia === 'Dislipemia')
-    ).length;
-    
-    const totalAltoRiesgo = filteredData.filter(d => d.Alto_Riesgo === 'Sí').length;
+    // Cálculo correcto para Mujeres y Varones
+    const totalMujeres = filteredData.filter(d => normalizeString(d['Sexo']) === 'femenino').length;
+    const totalVarones = filteredData.filter(d => normalizeString(d['Sexo']) === 'masculino').length;
 
-    // Actualiza los elementos HTML con los nuevos valores
-    document.getElementById('total-casos').textContent = totalCasos;
-    document.getElementById('total-mujeres').textContent = `${totalMujeres} (${((totalMujeres / totalCasos) * 100).toFixed(1)}%)`;
-    document.getElementById('total-varones').textContent = `${totalVarones} (${((totalVarones / totalCasos) * 100).toFixed(1)}%)`;
-    document.getElementById('total-cronicas').textContent = totalEnfCronicas;
-    document.getElementById('total-alto-riesgo').textContent = totalAltoRiesgo;
+    // Cálculo correcto para Enfermedades Crónicas
+    const totalEnfCronicas = filteredData.filter(d =>
+        normalizeString(d['Diabetes']) === 'presenta' ||
+        normalizeString(d['Presión Arterial']).includes('hipertens') ||
+        normalizeString(d['Dislipemias']) === 'presenta'
+    ).length;
 
-    // Llama a la función para reconstruir el menú de capítulos de salud con los datos filtrados
-    buildHealthChaptersMenu(filteredData);
+    // Cálculo correcto para Alto Riesgo
+    const totalAltoRiesgo = filteredData.filter(d => {
+        const edad = parseInt(d['Edad'], 10);
+        return edad > 50 && (
+            normalizeString(d['Diabetes']) === 'presenta' ||
+            normalizeString(d['Presión Arterial']).includes('hipertens') ||
+            normalizeString(d['IMC']).includes('obesidad') ||
+            normalizeString(d['IMC']).includes('sobrepeso') ||
+            normalizeString(d['Tabaco']) === 'fuma'
+        );
+    }).length;
+
+    // Actualiza los elementos HTML con los nuevos valores
+    document.getElementById('total-casos').textContent = totalCasos;
+    document.getElementById('total-mujeres').textContent = `${totalMujeres} (${((totalMujeres / totalCasos) * 100).toFixed(1)}%)`;
+    document.getElementById('total-varones').textContent = `${totalVarones} (${((totalVarones / totalCasos) * 100).toFixed(1)}%)`;
+    document.getElementById('total-cronicas').textContent = totalEnfCronicas;
+    document.getElementById('total-alto-riesgo').textContent = totalAltoRiesgo;
+
+    // Esta línea es importante para que los "Capítulos de Salud" también se actualicen.
+    // Si quieres que solo se arreglen los 5 indicadores de arriba y nada más, puedes borrar esta línea.
+    buildHealthChaptersMenu(filteredData);
 }
 
     async function initializeDashboard() {
@@ -660,8 +681,6 @@ function applyFiltersAndRenderDashboard() {
     // ✨ CORRECCIÓN: Aquí es donde debe ir la asignación. ✨
     // Ahora 'filteredData' ya contiene los datos filtrados y se puede asignar a la variable global.
     dashboardData = filteredData;
-    // Llama a la función que actualiza todos los componentes del dashboard
-    updateDashboardMetrics(datosFiltrados);
 
     document.getElementById('total-casos').textContent = filteredData.length;
     buildDashboard(filteredData);
