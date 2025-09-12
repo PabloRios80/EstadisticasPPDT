@@ -308,14 +308,11 @@ function generarPromptEspecifico(tipoInforme, stats, userPrompt, contexto) {
     return `
 CONTEXTO DEL PROGRAMA IAPOS:
 ${contexto}
-
 DATOS ESTADÍSTICOS ACTUALES:
 - Total de personas atendidas: ${stats.totalCasos}
-- Mujeres: ${stats.totalMujeres} | Hombres: ${stats.totalHombres}
-- Adultos: ${stats.adultos} | Pediátrico: ${stats.pediatrico}
-- Diabetes: ${stats.prevalenciaDiabetes}% | Hipertensión: ${stats.prevalenciaHipertension}%
-- Dislipemias: ${stats.prevalenciaDislipemias}% | Tabaquismo: ${stats.prevalenciaTabaquismo}%
-- Obesidad: ${stats.prevalenciaObesidad}% | Sobrepeso: ${stats.prevalenciaSobrepeso}%
+- Distribución: ${stats.totalMujeres} mujeres y ${stats.totalHombres} hombres.
+- Prevalencias principales: Diabetes ${stats.prevalenciaDiabetes}%, Hipertensión ${stats.prevalenciaHipertension}%, Dislipemias ${stats.prevalenciaDislipemias}%, Tabaquismo ${stats.prevalenciaTabaquismo}%, Obesidad ${stats.prevalenciaObesidad}%, Sobrepeso ${stats.prevalenciaSobrepeso}%.
+- Casos de Cáncer detectados: Mama (${stats.totalCancerMama}), Cervicouterino (${stats.totalCancerCervico}), Colon (${stats.totalCancerColon}), Próstata (${stats.totalCancerProstata}).
 - Enfermedades crónicas: ${stats.enfermedadesCronicas} casos
 
 SOLICITUD: "${userPrompt}"
@@ -548,27 +545,6 @@ function formatearInformeIAPOS(contenidoIA, stats, tipoInforme, userPrompt) {
         </tr>
     </table>
 
-    <!-- PRINCIPALES INDICADORES -->
-    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-        <h3 style="color: #0066CC; margin-top: 0;">📊 PRINCIPALES INDICADORES</h3>
-        <table width="100%" style="font-size: 14px;">
-            <tr>
-                <td width="33%" style="text-align: center; border-right: 1px solid #ddd;">
-                    <div style="color: #CC0000; font-size: 24px; font-weight: bold;">${stats.totalCasos}</div>
-                    <div style="color: #666;">Personas atendidas</div>
-                </td>
-                <td width="33%" style="text-align: center; border-right: 1px solid #ddd;">
-                    <div style="color: #CC0000; font-size: 24px; font-weight: bold;">${stats.prevalenciaDiabetes}%</div>
-                    <div style="color: #666;">Prevalencia diabetes</div>
-                </td>
-                <td width="33%" style="text-align: center;">
-                    <div style="color: #CC0000; font-size: 24px; font-weight: bold;">${stats.prevalenciaHipertension}%</div>
-                    <div style="color: #666;">Prevalencia HTA</div>
-                </td>
-            </tr>
-        </table>
-    </div>
-
     <!-- CONTENIDO GENERADO POR IA -->
     <div style="line-height: 1.6;">
         ${contenidoIA.replace(/\n/g, '<br>')}
@@ -583,62 +559,128 @@ function formatearInformeIAPOS(contenidoIA, stats, tipoInforme, userPrompt) {
 }
 function calcularEstadisticasCompletas(data) {
     const total = data.length;
-    if (total === 0) return { totalCasos: 0 };
-    
-    // Calcular estadísticas COMPLETAS
-    const mujeres = data.filter(r => normalizeString(r.Sexo) === 'femenino').length;
-    const hombres = data.filter(r => normalizeString(r.Sexo) === 'masculino').length;
-    const adultos = data.filter(r => parseInt(r.Edad) >= 18).length;
-    const pediatrico = data.filter(r => parseInt(r.Edad) < 18).length;
-    
-    // Calcular edades
-    const edades = data.map(r => parseInt(r.Edad)).filter(edad => !isNaN(edad) && edad > 0);
-    const edadPromedio = edades.length > 0 ? (edades.reduce((a, b) => a + b, 0) / edades.length).toFixed(1) : 'N/D';
-    const edadMin = edades.length > 0 ? Math.min(...edades) : 'N/D';
-    const edadMax = edades.length > 0 ? Math.max(...edades) : 'N/D';
+    if (total === 0) {
+        // Devuelve un objeto con valores en cero para evitar errores más adelante
+        return { 
+            totalCasos: 0, totalMujeres: 0, totalHombres: 0, adultos: 0, pediatrico: 0,
+            edadPromedio: 'N/D', edadMinima: 'N/D', edadMaxima: 'N/D',
+            prevalenciaDiabetes: '0.0', prevalenciaHipertension: '0.0', prevalenciaDislipemias: '0.0',
+            prevalenciaTabaquismo: '0.0', prevalenciaObesidad: '0.0', prevalenciaSobrepeso: '0.0',
+            enfermedadesCronicas: 0,
+            totalCancerMama: 0, totalCancerCervico: 0, totalCancerColon: 0, totalCancerProstata: 0,
+            totalVIH: 0, totalHepatitisB: 0, totalHepatitisC: 0, totalVDRL: 0, totalChagas: 0
+        };
+    }
 
+    // Objeto inicial para acumular los conteos
+    let contadores = {
+        mujeres: 0, hombres: 0, adultos: 0, pediatrico: 0,
+        edades: [], diabetes: 0, hipertension: 0, dislipemias: 0,
+        tabaquismo: 0, obesidad: 0, sobrepeso: 0, tieneEnfermedadCronica: 0,
+        cancerMama: 0, cancerCervico: 0, cancerColon: 0, cancerProstata: 0,
+        vih: 0, hepatitisB: 0, hepatitisC: 0, vdrl: 0, chagas: 0
+    };
+
+    // Recorremos los datos UNA SOLA VEZ para contar todo
+    for (const r of data) {
+        // Sexo
+        const sexo = normalizeString(r.Sexo);
+        if (sexo === 'femenino') contadores.mujeres++;
+        if (sexo === 'masculino') contadores.hombres++;
+
+        // Edad
+        const edad = parseInt(r.Edad, 10);
+        if (!isNaN(edad)) {
+            contadores.edades.push(edad);
+            if (edad >= 18) contadores.adultos++;
+            else contadores.pediatrico++;
+        }
+
+        // Factores de Riesgo y Crónicas
+        const esDiabetico = normalizeString(r.Diabetes) === 'presenta';
+        const esHipertenso = normalizeString(r['Presión Arterial']).includes('hipertens');
+        const tieneDislipemia = normalizeString(r.Dislipemias) === 'presenta';
+
+        if (esDiabetico) contadores.diabetes++;
+        if (esHipertenso) contadores.hipertension++;
+        if (tieneDislipemia) contadores.dislipemias++;
+        if (esDiabetico || esHipertenso || tieneDislipemia) contadores.tieneEnfermedadCronica++;
+        
+        if (normalizeString(r.Tabaco) === 'fuma') contadores.tabaquismo++;
+        
+        const imc = normalizeString(r.IMC);
+        if (imc.includes('obesidad')) contadores.obesidad++;
+        if (imc.includes('sobrepeso')) contadores.sobrepeso++;
+        
+        // Cáncer
+        if (normalizeString(r['Cáncer mama - Mamografía']) === 'patologico' || normalizeString(r['Cáncer mama - Eco mamaria']) === 'patologico') contadores.cancerMama++;
+        if (normalizeString(r['Cáncer cérvico uterino - PAP']) === 'patologico' || normalizeString(r['Cáncer cérvico uterino - HPV']) === 'patologico') contadores.cancerCervico++;
+        if (normalizeString(r['SOMF']) === 'patologico' || normalizeString(r['Cáncer colon - Colonoscopía']) === 'patologico') contadores.cancerColon++;
+        if (normalizeString(r['Próstata - PSA']) === 'patologico') contadores.cancerProstata++;
+        
+        // Infecciosas
+        if (normalizeString(r['VIH']) === 'positivo') contadores.vih++;
+        if (normalizeString(r['Hepatitis B']) === 'positivo') contadores.hepatitisB++;
+        if (normalizeString(r['Hepatitis C']) === 'positivo') contadores.hepatitisC++;
+        if (normalizeString(r['VDRL']) === 'positivo') contadores.vdrl++;
+        if (normalizeString(r['Chagas']) === 'positivo') contadores.chagas++;
+    }
+
+    // Calculamos promedios y prevalencias a partir de los conteos
+    const edadPromedio = contadores.edades.length > 0 ? (contadores.edades.reduce((a, b) => a + b, 0) / contadores.edades.length).toFixed(1) : 'N/D';
+    const edadMin = contadores.edades.length > 0 ? Math.min(...contadores.edades) : 'N/D';
+    const edadMax = contadores.edades.length > 0 ? Math.max(...contadores.edades) : 'N/D';
+
+    // Construimos el objeto final a devolver (limpio y ordenado)
     return {
         totalCasos: total,
-        totalMujeres: mujeres,
-        totalHombres: hombres,
-        adultos: adultos,
-        pediatrico: pediatrico,
+        totalMujeres: contadores.mujeres,
+        totalHombres: contadores.hombres,
+        adultos: contadores.adultos,
+        pediatrico: contadores.pediatrico,
+        
         edadPromedio: edadPromedio,
         edadMinima: edadMin,
         edadMaxima: edadMax,
         
         // Prevalencias
-        prevalenciaDiabetes: ((data.filter(r => normalizeString(r.Diabetes) === 'presenta').length / total) * 100).toFixed(1),
-        prevalenciaHipertension: ((data.filter(r => normalizeString(r['Presión Arterial']).includes('hipertens')).length / total) * 100).toFixed(1),
-        prevalenciaDislipemias: ((data.filter(r => normalizeString(r.Dislipemias) === 'presenta').length / total) * 100).toFixed(1),
-        prevalenciaTabaquismo: ((data.filter(r => normalizeString(r.Tabaco) === 'fuma').length / total) * 100).toFixed(1),
-        prevalenciaObesidad: ((data.filter(r => normalizeString(r.IMC).includes('obesidad')).length / total) * 100).toFixed(1),
-        prevalenciaSobrepeso: ((data.filter(r => normalizeString(r.IMC).includes('sobrepeso')).length / total) * 100).toFixed(1),
+        prevalenciaDiabetes: ((contadores.diabetes / total) * 100).toFixed(1),
+        prevalenciaHipertension: ((contadores.hipertension / total) * 100).toFixed(1),
+        prevalenciaDislipemias: ((contadores.dislipemias / total) * 100).toFixed(1),
+        prevalenciaTabaquismo: ((contadores.tabaquismo / total) * 100).toFixed(1),
+        prevalenciaObesidad: ((contadores.obesidad / total) * 100).toFixed(1),
+        prevalenciaSobrepeso: ((contadores.sobrepeso / total) * 100).toFixed(1),
         
-        // Enfermedades crónicas
-        enfermedadesCronicas: data.filter(r => 
-            normalizeString(r.Diabetes) === 'presenta' ||
-            normalizeString(r['Presión Arterial']).includes('hipertens') ||
-            normalizeString(r.Dislipemias) === 'presenta'
-        ).length,
+        enfermedadesCronicas: contadores.tieneEnfermedadCronica,
         
-        // Datos adicionales para IA
+        // Datos de Cáncer
+        totalCancerMama: contadores.cancerMama,
+        totalCancerCervico: contadores.cancerCervico,
+        totalCancerColon: contadores.cancerColon,
+        totalCancerProstata: contadores.cancerProstata,
+        
+        // Datos de Infecciosas
+        totalVIH: contadores.vih,
+        totalHepatitisB: contadores.hepatitisB,
+        totalHepatitisC: contadores.hepatitisC,
+        totalVDRL: contadores.vdrl,
+        totalChagas: contadores.chagas,
+
+        // Los datos adicionales que tenías (si los necesitas para otro lugar)
         distribucionSexo: {
-            mujeres: mujeres,
-            hombres: hombres,
-            porcentajeMujeres: ((mujeres / total) * 100).toFixed(1),
-            porcentajeHombres: ((hombres / total) * 100).toFixed(1)
+            mujeres: contadores.mujeres,
+            hombres: contadores.hombres,
+            porcentajeMujeres: ((contadores.mujeres / total) * 100).toFixed(1),
+            porcentajeHombres: ((contadores.hombres / total) * 100).toFixed(1)
         },
-        
         distribucionEdad: {
-            adultos: adultos,
-            pediatrico: pediatrico,
-            porcentajeAdultos: ((adultos / total) * 100).toFixed(1),
-            porcentajePediatrico: ((pediatrico / total) * 100).toFixed(1)
+            adultos: contadores.adultos,
+            pediatrico: contadores.pediatrico,
+            porcentajeAdultos: ((contadores.adultos / total) * 100).toFixed(1),
+            porcentajePediatrico: ((contadores.pediatrico / total) * 100).toFixed(1)
         }
     };
 }
-
 function generarInformeAutomatico(stats, userPrompt) {
     return formatearInformeIAPOS(`
 <h3 style="color: #0066CC;">📋 INFORME AUTOMÁTICO IAPOS</h3>
