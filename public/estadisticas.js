@@ -386,6 +386,32 @@ document.addEventListener('DOMContentLoaded', () => {
     
     initializeDashboard();
 
+    function updateDashboardMetrics(filteredData) {
+    const totalCasos = filteredData.length;
+
+    const totalMujeres = filteredData.filter(d => d.Sexo === 'F').length;
+    const totalVarones = filteredData.filter(d => d.Sexo === 'M').length;
+    
+    // Calcula las enfermedades crónicas. Es más preciso iterar sobre el array de datos filtrados.
+    const totalEnfCronicas = filteredData.filter(d =>
+        (d.Enfermedad_Cronica === 'Sí' && d.Patologia === 'Diabetes') ||
+        (d.Enfermedad_Cronica === 'Sí' && d.Patologia === 'Hipertensión Arterial') ||
+        (d.Enfermedad_Cronica === 'Sí' && d.Patologia === 'Dislipemia')
+    ).length;
+    
+    const totalAltoRiesgo = filteredData.filter(d => d.Alto_Riesgo === 'Sí').length;
+
+    // Actualiza los elementos HTML con los nuevos valores
+    document.getElementById('total-casos').textContent = totalCasos;
+    document.getElementById('total-mujeres').textContent = `${totalMujeres} (${((totalMujeres / totalCasos) * 100).toFixed(1)}%)`;
+    document.getElementById('total-varones').textContent = `${totalVarones} (${((totalVarones / totalCasos) * 100).toFixed(1)}%)`;
+    document.getElementById('total-cronicas').textContent = totalEnfCronicas;
+    document.getElementById('total-alto-riesgo').textContent = totalAltoRiesgo;
+
+    // Llama a la función para reconstruir el menú de capítulos de salud con los datos filtrados
+    buildHealthChaptersMenu(filteredData);
+}
+
     async function initializeDashboard() {
         updateDate();
         await fetchDataAndSetButtonState('Adultos');
@@ -469,18 +495,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     async function fetchData(tipo) {
     try {
+        let datosUrl;
+        if (tipo.toLowerCase() === 'total') {
+            // Llama a la URL para obtener todos los datos sin un filtro de tipo.
+            datosUrl = '/obtener-datos-completos';
+        } else {
+            // Mantiene el comportamiento actual para 'adultos' y 'pediátrico'.
+            datosUrl = `/obtener-datos-completos?tipo=${tipo}`;
+        }
+        
         let indicadoresUrl;
         if (tipo.toLowerCase() === 'total') {
-            // Llama a la URL sin el filtro de tipo para obtener el total de indicadores.
             indicadoresUrl = '/obtener-indicadores-fijos';
         } else {
-            // Mantiene el comportamiento actual para 'adultos' y 'pediatrico'.
             indicadoresUrl = `/obtener-indicadores-fijos?tipo=${tipo}`;
         }
 
         const [dataResponse, indicadoresResponse, camposResponse] = await Promise.all([
-            fetch(`/obtener-datos-completos?tipo=${tipo}`),
-            fetch(indicadoresUrl), // Usa la URL corregida aquí
+            fetch(datosUrl),
+            fetch(indicadoresUrl),
             fetch('/obtener-campos')
         ]);
         
@@ -489,6 +522,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return row;
         });
         
+        // This is the crucial line for the report
         dashboardData = [...allData];
         
         fixedIndicators = await indicadoresResponse.json();
@@ -514,6 +548,9 @@ document.addEventListener('DOMContentLoaded', () => {
 }
 async function fetchDataAndSetButtonState(tipo) {
     await fetchData(tipo);
+
+    // Llama a la nueva función aquí para actualizar todo el dashboard con los datos iniciales
+    updateDashboardMetrics(allData);
     
     // Referencias a los botones para un código más limpio
     const filtroTotalBtn = document.getElementById('filtro-total');
@@ -623,6 +660,8 @@ function applyFiltersAndRenderDashboard() {
     // ✨ CORRECCIÓN: Aquí es donde debe ir la asignación. ✨
     // Ahora 'filteredData' ya contiene los datos filtrados y se puede asignar a la variable global.
     dashboardData = filteredData;
+    // Llama a la función que actualiza todos los componentes del dashboard
+    updateDashboardMetrics(datosFiltrados);
 
     document.getElementById('total-casos').textContent = filteredData.length;
     buildDashboard(filteredData);
@@ -652,6 +691,7 @@ function applyFiltersAndRenderDashboard() {
     
     function clearFilters() {
         filtrosAplicadosDiv.innerHTML = '';
+        updateDashboardMetrics(allData);
         buildDashboard(allData);
         document.getElementById('total-casos').textContent = fixedIndicators.diasPreventivos;
     }
