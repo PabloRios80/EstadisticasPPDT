@@ -95,46 +95,35 @@
             </button>
         </div>
     </div>
-
     <div class="container mx-auto p-8">
-        <div id="indicadores-principales" class="flex flex-wrap justify-between gap-6 mb-8"></div>
-            <div id="indicador-casos" class="bg-white p-4 rounded-full shadow-md text-center flex items-center justify-center space-x-2 cursor-pointer">
-                <i class="fas fa-users text-blue-500 text-2xl"></i>
-                <div>
-                    <p class="text-lg text-gray-600">Total de Casos</p>
-                    <p id="total-casos" class="text-3xl font-bold text-blue-800">Cargando...</p>
-                </div>
+        <div id="indicadores-principales" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+        
+            <div id="indicador-casos" class="indicador bg-white p-3 rounded-lg shadow-md text-center flex flex-col justify-center cursor-pointer">
+                <p class="text-sm font-semibold text-gray-600">Total Casos</p>
+                <p id="total-casos" class="text-2xl font-bold text-blue-800">Cargando...</p>
             </div>
-            <div id="indicador-mujeres" class="bg-white p-4 rounded-full shadow-md text-center flex items-center justify-center space-x-2 cursor-pointer">
-                <i class="fas fa-venus text-pink-500 text-2xl"></i>
-                <div>
-                    <p class="text-lg text-gray-600">Mujeres</p>
-                    <p id="total-mujeres" class="text-3xl font-bold text-pink-800">Cargando...</p>
-                </div>
+
+            <div id="indicador-mujeres" class="indicador bg-white p-3 rounded-lg shadow-md text-center flex flex-col justify-center cursor-pointer">
+                <p class="text-sm font-semibold text-gray-600">Mujeres</p>
+                <p id="total-mujeres" class="text-2xl font-bold text-pink-800">Cargando...</p>
             </div>
-            <div id="indicador-varones" class="bg-white p-4 rounded-full shadow-md text-center flex items-center justify-center space-x-2 cursor-pointer">
-                <i class="fas fa-mars text-blue-500 text-2xl"></i>
-                <div>
-                    <p class="text-lg text-gray-600">Varones</p>
-                    <p id="total-varones" class="text-3xl font-bold text-blue-800">Cargando...</p>
-                </div>
+
+            <div id="indicador-varones" class="indicador bg-white p-3 rounded-lg shadow-md text-center flex flex-col justify-center cursor-pointer">
+                <p class="text-sm font-semibold text-gray-600">Varones</p>
+                <p id="total-varones" class="text-2xl font-bold text-blue-800">Cargando...</p>
             </div>
-            <div id="indicador-enfermedades-cronicas" class="bg-white p-4 rounded-full shadow-md text-center flex items-center justify-center space-x-2 cursor-pointer">
-                <i class="fas fa-heartbeat text-red-500 text-2xl"></i>
-                <div>
-                    <p class="text-lg text-gray-600">Enf. Crónicas</p>
-                    <p id="total-cronicas" class="text-3xl font-bold text-red-800">Cargando...</p>
-                </div>
+
+            <div id="indicador-enfermedades-cronicas" class="indicador bg-white p-3 rounded-lg shadow-md text-center flex flex-col justify-center cursor-pointer">
+                <p class="text-sm font-semibold text-gray-600">Enf. Crónicas</p>
+                <p id="total-cronicas" class="text-2xl font-bold text-red-800">Cargando...</p>
             </div>
-            <div id="indicador-alto-riesgo" class="bg-white p-4 rounded-full shadow-md text-center flex items-center justify-center space-x-2 border-2 border-red-500 cursor-pointer">
-                <i class="fas fa-bomb text-red-600 text-2xl"></i>
-                <div>
-                    <p class="text-lg text-gray-600">Alto Riesgo</p>
-                    <p id="total-alto-riesgo" class="text-3xl font-bold text-red-800">Cargando...</p>
-                </div>
+
+            <div id="indicador-alto-riesgo" class="indicador bg-white p-3 rounded-lg shadow-md text-center flex flex-col justify-center cursor-pointer border-2 border-red-500">
+                <p class="text-sm font-semibold text-gray-600">Alto Riesgo</p>
+                <p id="total-alto-riesgo" class="text-2xl font-bold text-red-800">Cargando...</p>
             </div>
         </div>
-        
+    </div>        
         <div id="controles-filtros" class="bg-white p-8 rounded-lg shadow-xl mb-8 hidden">
             <h2 class="text-2xl font-bold mb-4">Cruces y Filtrado</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
