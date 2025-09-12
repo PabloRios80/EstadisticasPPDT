@@ -385,6 +385,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     initializeDashboard();
+
 function updateDashboardMetrics(filteredData) {
     // Si no hay datos, muestra 0 para evitar errores.
     if (!filteredData || filteredData.length === 0) {
@@ -661,29 +662,31 @@ async function fetchDataAndSetButtonState(tipo) {
             filtrosAplicadosDiv.appendChild(filtroDiv);
         });
     }
-function applyFiltersAndRenderDashboard() {
+    function applyFiltersAndRenderDashboard() {
+    // 1. Obtiene TODOS los filtros que el usuario haya añadido
     const filters = getFiltersFromUI();
+
+    // 2. Crea un nuevo listado de datos que cumple con TODAS las condiciones a la vez
     const filteredData = allData.filter(row => {
-        if (filters.length === 0) return true;
         return filters.every(filter => {
             if (filter.field === 'Edad') {
-                const edad = row.Edad;
-                return edad >= filter.value.desde && edad <= filter.value.hasta;
-            } else if (filter.operator === 'in') {
-                const valueInRow = row[filter.field];
-                if (!valueInRow) return false;
-                return filter.value.includes(valueInRow);
+                return row.Edad >= filter.value.desde && row.Edad <= filter.value.hasta;
+            }
+            if (filter.operator === 'in') {
+                return filter.value.includes(row[filter.field]);
             }
             return false;
         });
     });
 
-    // ✨ CORRECCIÓN: Aquí es donde debe ir la asignación. ✨
-    // Ahora 'filteredData' ya contiene los datos filtrados y se puede asignar a la variable global.
-    dashboardData = filteredData;
-
-    document.getElementById('total-casos').textContent = filteredData.length;
+    // 3. Llama a la función que actualiza los 5 indicadores de arriba Y la tabla de Capítulos de Salud
+    updateDashboardMetrics(filteredData);
+    
+    // 4. Llama a la función que actualiza las gráficas
     buildDashboard(filteredData);
+    
+    // 5. Guarda el resultado para futuras operaciones
+    dashboardData = filteredData;
 }
     
     function getFiltersFromUI() {
@@ -714,94 +717,69 @@ function applyFiltersAndRenderDashboard() {
         buildDashboard(allData);
         document.getElementById('total-casos').textContent = fixedIndicators.diasPreventivos;
     }
+    function buildHealthChaptersMenu(dataParaCalcular = allData) {
+    menuContainer.innerHTML = '';
+    const normalizeString = (str) => str ? str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase() : '';
     
-    function buildHealthChaptersMenu() {
-        menuContainer.innerHTML = '';
-        const normalizeString = (str) => str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+    IAPOS_PREVENTIVE_PROGRAM_MENU.forEach(category => {
+        const categoryDiv = document.createElement('div');
+        categoryDiv.classList.add('bg-gray-100', 'p-6', 'rounded-lg', 'mb-6', `category-container-shadow-${category.color.split('-')[0]}`);
         
-        IAPOS_PREVENTIVE_PROGRAM_MENU.forEach(category => {
-            const categoryDiv = document.createElement('div');
-            categoryDiv.classList.add('bg-gray-100', 'p-6', 'rounded-lg', 'mb-6', `category-container-shadow-${category.color.split('-')[0]}`);
-            
-            const categoryHeader = `
-                <div class="flex items-center space-x-4 mb-4">
-                    <i class="fas fa-${category.icon} text-${category.color} text-2xl"></i>
-                    <h3 class="text-xl font-semibold text-gray-800">${category.category}</h3>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            `;
-            let subtopicsHtml = '';
+        let subtopicsHtml = '';
 
-            category.subtopics.forEach(subtopic => {
-                if (subtopic.subtopics) {
-                    let totalCount = 0;
-                    const nestedSubtopicsHtml = subtopic.subtopics.map(nestedSubtopic => {
-                        let nestedCount = 0;
-                        if (nestedSubtopic.fixedCount !== undefined) {
-                            nestedCount = nestedSubtopic.fixedCount;
-                        } else if (Array.isArray(nestedSubtopic.value)) {
-                            nestedCount = allData.filter(row => nestedSubtopic.value.some(val => normalizeString(row[nestedSubtopic.column]) === normalizeString(val))).length;
-                        } else if (nestedSubtopic.type === 'multi-or') {
-                            const uniqueDNI = new Set();
-                            nestedSubtopic.columns.forEach(col => {
-                                allData.filter(row => normalizeString(row[col]) === normalizeString(nestedSubtopic.value)).forEach(row => {
-                                    if(row.DNI) uniqueDNI.add(row.DNI);
-                                });
-                            });
-                            nestedCount = uniqueDNI.size;
-                        } else {
-                            nestedCount = allData.filter(row => normalizeString(row[nestedSubtopic.column]) === normalizeString(nestedSubtopic.value)).length;
-                        }
-                        totalCount += nestedCount;
-                        const parentesisHtml = nestedSubtopic.parentesis ? `<span class="text-xs text-gray-400">(${nestedSubtopic.parentesis})</span>` : '';
-                        return `<p class="text-sm text-gray-500 mt-1">${nestedSubtopic.name} ${parentesisHtml}: <span class="font-bold text-gray-800">${nestedCount}</span></p>`;
-                    }).join('');
-                    
-                    subtopicsHtml += `
-                        <div class="subtopic bg-white p-4 rounded-lg border border-gray-300">
-                            <p class="font-medium text-gray-700">${subtopic.name}</p>
-                            ${nestedSubtopicsHtml}
-                            <p class="text-sm text-gray-500 mt-1 font-bold">Total: <span class="font-bold text-gray-800">${totalCount}</span></p>
-                        </div>
-                    `;
-                } else {
-                    let count = 0;
-                    if (subtopic.type === 'multi-or') {
-                        const uniqueDNI = new Set();
-                        subtopic.columns.forEach(col => {
-                            allData.filter(row => normalizeString(row[col]) === normalizeString(subtopic.value)).forEach(row => {
-                                if(row.DNI) uniqueDNI.add(row.DNI);
-                            });
-                        });
-                        count = uniqueDNI.size;
-                    } else if (subtopic.normalized) {
-                        count = allData.filter(row => normalizeString(row[subtopic.column]).includes(normalizeString(subtopic.value))).length;
-                    } else if (Array.isArray(subtopic.value)) {
-                        count = allData.filter(row => subtopic.value.some(val => normalizeString(row[subtopic.column]) === normalizeString(val))).length;
-                    } else {
-                        count = allData.filter(row => normalizeString(row[subtopic.column]) === normalizeString(subtopic.value)).length;
+        // Se construye el HTML de cada "cajita" de subtema
+        category.subtopics.forEach(subtopic => {
+            if (subtopic.subtopics) { // Si es un grupo de subtemas
+                let totalCount = 0;
+                const nestedSubtopicsHtml = subtopic.subtopics.map(nestedSubtopic => {
+                    let nestedCount = 0;
+                    if (nestedSubtopic.value) {
+                       nestedCount = dataParaCalcular.filter(row => normalizeString(row[nestedSubtopic.column]) === normalizeString(nestedSubtopic.value)).length;
                     }
-                    
-                    const parentesisHtml = subtopic.parentesis ? `<span class="text-xs text-gray-400">(${subtopic.parentesis})</span>` : '';
-                    
-                    subtopicsHtml += `
-                        <div class="subtopic bg-white p-4 rounded-lg border border-gray-300">
-                            <p class="font-medium text-gray-700">${subtopic.name} ${parentesisHtml}</p>
-                            <p class="text-sm text-gray-500 mt-1">Casos: <span class="font-bold text-gray-800">${count}</span></p>
-                        </div>
-                    `;
+                    totalCount += nestedCount;
+                    const parentesisHtml = nestedSubtopic.parentesis ? `<span class="text-xs text-gray-400">(${nestedSubtopic.parentesis})</span>` : '';
+                    return `<p class="text-sm text-gray-500 mt-1">${nestedSubtopic.name} ${parentesisHtml}: <span class="font-bold text-gray-800">${nestedCount}</span></p>`;
+                }).join('');
+                
+                subtopicsHtml += `
+                    <div class="subtopic bg-white p-4 rounded-lg border border-gray-300">
+                        <p class="font-medium text-gray-700">${subtopic.name}</p>
+                        ${nestedSubtopicsHtml}
+                        <p class="text-sm text-gray-500 mt-1 font-bold">Total: <span class="font-bold text-gray-800">${totalCount}</span></p>
+                    </div>
+                `;
+            } else { // Si es un subtema simple
+                let count = 0;
+                if (subtopic.normalized) {
+                    count = dataParaCalcular.filter(row => normalizeString(row[subtopic.column]).includes(normalizeString(subtopic.value))).length;
+                } else {
+                    count = dataParaCalcular.filter(row => normalizeString(row[subtopic.column]) === normalizeString(subtopic.value)).length;
                 }
-            });
-            
-            categoryDiv.innerHTML = `
-                ${categoryHeader}
-                ${subtopicsHtml}
-                </div>
-            `;
-            menuContainer.appendChild(categoryDiv);
+                
+                const parentesisHtml = subtopic.parentesis ? `<span class="text-xs text-gray-400">(${subtopic.parentesis})</span>` : '';
+                
+                subtopicsHtml += `
+                    <div class="subtopic bg-white p-4 rounded-lg border border-gray-300">
+                        <p class="font-medium text-gray-700">${subtopic.name} ${parentesisHtml}</p>
+                        <p class="text-sm text-gray-500 mt-1">Casos: <span class="font-bold text-gray-800">${count}</span></p>
+                    </div>
+                `;
+            }
         });
-    }
-
+        
+        // Se arma la estructura final, asegurando que las "cajitas" estén dentro de la grilla
+        categoryDiv.innerHTML = `
+            <div class="flex items-center space-x-4 mb-4">
+                <i class="fas fa-${category.icon} text-${category.color} text-2xl"></i>
+                <h3 class="text-xl font-semibold text-gray-800">${category.category}</h3>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                ${subtopicsHtml}
+            </div>
+        `;
+        menuContainer.appendChild(categoryDiv);
+    });
+}
     function createAgeChart(data) {
         if (!data || data.length === 0) return;
         const counts = {
