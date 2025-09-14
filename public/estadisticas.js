@@ -252,19 +252,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!str) return '';
         return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
     }
-    
-    // Función para limpiar los datos de edad
     function parseEdad(edadStr) {
-        if (!edadStr) return NaN;
-        const str = edadStr.toString().toLowerCase().trim();
-        let match = str.match(/(\d+)\s*a/);
-        if (match) return parseInt(match[1], 10);
-        match = str.match(/(\d+)\s*m/);
-        if (match) return -parseInt(match[1], 10);
-        const num = parseInt(str, 10);
-        if (!isNaN(num)) return num;
-        return NaN;
+    if (!edadStr) return NaN;
+    const str = edadStr.toString().toLowerCase().trim();
+    
+    // Busca "X a" (años)
+    let match = str.match(/(\d+)\s*a/);
+    if (match) return parseInt(match[1], 10);
+    
+    // Busca "X m" (meses) y lo convierte a fracción de año
+    match = str.match(/(\d+)\s*m/);
+    if (match) {
+        // Divide los meses por 12 para obtener la fracción de año.
+        // Math.round(...) para redondear a un decimal.
+        return Math.round((parseInt(match[1], 10) / 12) * 10) / 10;
     }
+    
+    // Si es solo un número, lo devuelve
+    const num = parseInt(str, 10);
+    if (!isNaN(num)) return num;
+    
+    return NaN;
+}
 
     const IAPOS_PREVENTIVE_PROGRAM_MENU = [
         {
@@ -338,7 +347,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 { name: "Aneurisma de Aorta", column: "Aneurisma aorta", value: "Se verifica" },
                 { name: "Osteoporosis", column: "Osteoporosis", value: "Se verifica" },
                 { name: "Uso de Aspirina", column: "Aspirina", value: "Indicada" },
-                { name: "Salud Mental", column: "Depresión", value: "Se verifica" }
+                { name: "Depresion", column: "Depresión", value: "Se verifica" },
+                { name: "Sedentarismo", column: "Actividad física", value: "No realiza" },
+                { name: "Seguridad vial", column: "Seguridad vial", value: "No cumple" },
+                { name: "Prevencion Caidas en Ancianos", column: "Caídas en adultos mayores", value: "Se verifica" },
+                { name: "Alcoholismo", column: "Abuso alcohol", value: "Abusa" },
+                { name: "Violencia Familiar", column: "Violencia", value: "Se verifica" },
+                { name: "Vacunacion Incompleta", column: "Inmunizaciones", value: "Incompleto" },
+                { name: "Acido folico en embarazo", column: "Ácido fólico", value: "Indicado" }
             ]
         }
     ];
@@ -734,7 +750,7 @@ async function fetchDataAndSetButtonState(tipo) {
                 const nestedSubtopicsHtml = subtopic.subtopics.map(nestedSubtopic => {
                     let nestedCount = 0;
                     if (nestedSubtopic.value) {
-                       nestedCount = dataParaCalcular.filter(row => normalizeString(row[nestedSubtopic.column]) === normalizeString(nestedSubtopic.value)).length;
+                        nestedCount = dataParaCalcular.filter(row => normalizeString(row[nestedSubtopic.column]) === normalizeString(nestedSubtopic.value)).length;
                     }
                     totalCount += nestedCount;
                     const parentesisHtml = nestedSubtopic.parentesis ? `<span class="text-xs text-gray-400">(${nestedSubtopic.parentesis})</span>` : '';
@@ -1016,8 +1032,6 @@ function generarInformeCompleto() {
             );
         });
 }
-
-
     function exportReportToPdf() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();

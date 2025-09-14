@@ -4,6 +4,16 @@ const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs');
 const app = express();
+// --- CÓDIGO PARA CARGAR EL LOGO (CORREGIDO) ---
+let logoBase64 = '';
+try {
+    // Le indicamos que entre a la carpeta 'public' a buscar el logo
+    const logoData = fs.readFileSync(path.join(__dirname, 'public', 'logo_iapos.png'));
+    logoBase64 = `data:image/png;base64,${logoData.toString('base64')}`;
+    console.log('✅ Logo de IAPOS cargado correctamente.');
+} catch (error) {
+    console.error('❌ No se pudo encontrar el archivo logo_iapos.png en la carpeta /public.');
+}
 const PORT = process.env.PORT || 3000;
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
@@ -305,59 +315,56 @@ function determinarTipoInforme(userPrompt) {
     return 'completo';
 }
 function generarPromptEspecifico(tipoInforme, stats, userPrompt, contexto) {
+    // Usamos los datos de edad que ya calculamos. Si no existen, ponemos 'N/D'.
+    const resumenEdad = `Edad promedio: ${stats.edadPromedio || 'N/D'}, Rango de edad: ${stats.edadMinima || 'N/D'} - ${stats.edadMaxima || 'N/D'}.`;
     return `
+    --------------------------------
+TAREA PRINCIPAL
+--------------------------------
+Actúa como un experto en salud pública y epidemiología. Tu misión es redactar un informe ejecutivo claro, perspicaz y accionable sobre los resultados del programa "Día Preventivo IAPOS", basado ESTRICTAMENTE en el contexto y los datos estadísticos que te proporciono.
+
 CONTEXTO DEL PROGRAMA IAPOS:
 ${contexto}
-DATOS ESTADÍSTICOS ACTUALES:
-- Total de personas atendidas: ${stats.totalCasos}
-- Distribución: ${stats.totalMujeres} mujeres y ${stats.totalHombres} hombres.
-- Prevalencias principales: Diabetes ${stats.prevalenciaDiabetes}%, Hipertensión ${stats.prevalenciaHipertension}%, Dislipemias ${stats.prevalenciaDislipemias}%, Tabaquismo ${stats.prevalenciaTabaquismo}%, Obesidad ${stats.prevalenciaObesidad}%, Sobrepeso ${stats.prevalenciaSobrepeso}%.
-- Casos de Cáncer detectados: Mama (${stats.totalCancerMama}), Cervicouterino (${stats.totalCancerCervico}), Colon (${stats.totalCancerColon}), Próstata (${stats.totalCancerProstata}).
+- Total de personas: ${stats.totalCasos}
+- Distribución por sexo: ${stats.totalMujeres} mujeres y ${stats.totalHombres} hombres.
+- Distribución por edad: ${stats.adultos} adultos y ${stats.pediatrico} pediátricos. ${resumenEdad}
+- Prevalencias de riesgo cardiovascular: Diabetes (${stats.prevalenciaDiabetes}%), Hipertensión (${stats.prevalenciaHipertension}%), Dislipemias (${stats.prevalenciaDislipemias}%), Tabaquismo (${stats.prevalenciaTabaquismo}%), Obesidad (${stats.prevalenciaObesidad}%), Sobrepeso (${stats.prevalenciaSobrepeso}%).
+- Casos de Cáncer (screening patológico): Mama (${stats.totalCancerMama}), Cervicouterino (${stats.totalCancerCervico}), Colon (${stats.totalCancerColon}), Próstata (${stats.totalCancerProstata}).
+- Casos de Infecciosas (screening positivo): VIH (${stats.totalVIH}), Hepatitis B (${stats.totalHepatitisB}), Hepatitis C (${stats.totalHepatitisC}), Sífilis/VDRL (${stats.totalVDRL}), Chagas (${stats.totalChagas}).
 - Enfermedades crónicas: ${stats.enfermedadesCronicas} casos
+- Otros Indicadores: ${stats.totalSaludBucalRiesgo} con riesgo bucal, ${stats.totalSaludRenalPatologico} con ERC, ${stats.totalDepresion} con depresión, ${stats.totalEPOC} con EPOC, ${stats.totalAgudezaVisual} con agudeza visual alterada, ${stats.totalViolencia} casos de violencia, ${stats.totalSindromeMetabolico} con S. Metabólico, ${stats.totalSedentarismo} con sedentarismo, ${stats.totalAlcoholismo} casos de abuso de alcohol, ${stats.totalVacunacionIncompleta} con vacunas incompletas.
+SOLICITUD DEL USUARIO: "${userPrompt || 'Generar un informe completo y detallado.'}"
 
-SOLICITUD: "${userPrompt}"
+--------------------------------
+INSTRUCCIONES Y ESTRUCTURA DEL INFORME (Tu guion)
+--------------------------------
 
-INSTRUCCIONES ESPECÍFICAS PARA EL INFORME:
+1. Introducción al Programa Día Preventivo:**
+   - **Tarea:** Usando la información del CONTEXTO, redacta un párrafo introductorio de 4-5 líneas que explique qué es el programa, su marco normativo y su importancia estratégica para la salud pública. Este debe ser el primer capítulo del informe.
 
-1. ENCABEZADO (5-6 renglones):
-    - Historia y marco legal del Programa Día Preventivo IAPOS
-    - Contexto institucional y normativo
-    - Importancia en salud pública
+2. Resumen Ejecutivo (Hallazgos Clave):**
+   - **Tarea:** Identifica los 3 o 4 hallazgos más impactantes o preocupantes de los DATOS ESTADÍSTICOS. Preséntalos en un párrafo conciso. No te limites a repetir los números; interpreta lo que significan.
 
-2. ANÁLISIS GLOBAL (5-6 renglones):
-    - Cantidad total de personas atendidas
-    - Distribución por sexo y grupos etarios
-    - Promedio y ranges de edad
-    - Datos principales del dashboard
+3.  **Análisis Detallado por Capítulos:
+3. Análisis Detallado por Capítulos:**
+   - **Tarea:** Para cada capítulo, no solo presentes el dato. **Explica sus implicaciones, reflexiona sobre por qué podría estar ocurriendo y, si es apropiado, sugiere una o dos líneas de acción o preguntas para futuras investigaciones.** Adopta un tono más analítico y menos robótico.
+    -   "Análisis Global de la Población"
+    -   "❤️ Riesgo Cardiovascular y Enfermedades Crónicas"
+    -   "🎗️ Prevención de Cáncer"
+    -   "🦠 Prevalencia de Enfermedades Infecciosas"
+    -   "🚭 Hábitos y Estilo de Vida"
 
-3. ANÁLISIS POR CAPÍTULOS (10-12 renglones cada uno):
-    a) RIESGO CARDIOVASCULAR Y ENFERMEDADES CRÓNICAS:
-      * Como especialista en cardiología, epidemiología y medicina clínica
-      * Análisis de diabetes, hipertensión, dislipemias
-      * Factores de riesgo integrados
-      * Estrategias de prevención
+**REGLAS DE INTERPRETACIÓN CLÍNICA (MUY IMPORTANTE):**
+- Un resultado de **SOMF+** o **HPV+** NO es un diagnóstico de cáncer. Debes describirlo como un **INDICADOR DE RIESGO ELEVADO** que requiere estudios adicionales como una colonoscopía o seguimiento ginecológico.
+- En cambio, un hallazgo patológico en **PAP** o **Colonoscopía** sí debe ser mencionado como un caso de **DETECCIÓN TEMPRANA DE CANCER**.
+- Basa **TODAS** tus afirmaciones exclusivamente en los datos estadísticos proporcionados. No inventes información. Si un dato es 0, menciónalo como "no se detectaron casos".
 
-    b) PREVENCIÓN DE CÁNCER:
-      * Como oncólogo especialista
-      * Análisis de screening y detección temprana
-      * Factores de riesgo oncológicos
-      * Programas de prevención específicos
-
-    c) ENFERMEDADES INFECCIOSAS:
-      * Como infectólogo especialista
-      * Análisis de prevalencia e impacto
-      * Estrategias de prevención y control
-      * Programas de vacunación y screening
-
-    d) HÁBITOS Y ESTILO DE VIDA:
-      * Como especialista en medicina preventiva
-      * Análisis de tabaquismo, nutrición, actividad física
-      * Estrategias de modificación conductual
-
-4. CONCLUSIONES Y RECOMENDACIONES (5-6 renglones):
-    - Conclusiones generales del programa
-    - Propuestas de mejora específicas
-    - Recomendaciones estratégicas para IAPOS
+4.  **Conclusiones y Recomendaciones:** Finaliza con una sección titulada "Conclusiones" mas que hacer  recomendaciones enfocate en lo positivo del programa, los casos que se detectaron y pueden mejorar la calidad de la vida de mucha gente y como continuar en este camino es muy importante.
+5.  **Estilo de Escritura:**
+    -   Utiliza **negritas** para resaltar cifras, porcentajes y frases clave de alto impacto.
+    -   Mantén un lenguaje técnico pero claro y accesible.
+    -   Sé directo y conciso. No agregues texto de relleno.
+    -   Basa **TODAS** tus afirmaciones exclusivamente en los datos estadísticos proporcionados arriba. Si un dato es 0, menciónalo como "no se detectaron casos" o "baja prevalencia". NO digas que "no hay datos".
 
 REGLAS ESTRICTAS:
 - Lenguaje técnico pero accesible
@@ -368,6 +375,8 @@ REGLAS ESTRICTAS:
 - Sin preámbulos ni introducciones redundantes
 
 RESPONDER ÚNICAMENTE CON EL CONTENIDO DEL INFORME.
+**REGLA DE ORO:** Tienes permiso para "volar un poco más" en tu análisis y redacción, conectando los puntos y ofreciendo reflexiones. Tu creatividad debe usarse para hacer el informe más legible y perspicaz, pero **NUNCA para inventar datos o conclusiones que no se sustenten en los números proporcionados.** Sé estricto con la evidencia.
+
 `;
 }
 
@@ -525,17 +534,26 @@ app.post('/generar-informe', async (req, res) => {
         return res.status(500).json({ error: 'Error interno', message: error.message });
     }
 });
-
 function formatearInformeIAPOS(contenidoIA, stats, tipoInforme, userPrompt) {
     const fecha = new Date().toLocaleDateString('es-AR');
+
+    // --- LÍNEA MODIFICADA PARA AÑADIR EL FONDO AZUL ---
+    const logoHtml = logoBase64 
+        // Si el logo existe, lo envuelve en un DIV circular con fondo azul
+        ? `<div style="display: inline-block; background-color: #2563EB; border-radius: 50%; padding: 10px; line-height: 0;">
+               <img src="${logoBase64}" alt="Logo IAPOS" style="height: 50px; width: auto;">
+           </div>`
+        // Si no, muestra el texto de respaldo
+        : '<div style="color: #0066CC; font-size: 28px; font-weight: bold;">🏥 IAPOS</div>';
     
     return `
-<!-- ENCABEZADO IAPOS -->
 <div style="font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto;">
     <table width="100%" style="border-bottom: 3px solid #0066CC; margin-bottom: 20px;">
         <tr>
             <td width="50%">
-                <div style="color: #0066CC; font-size: 28px; font-weight: bold;">🏥 IAPOS</div>
+                
+                ${logoHtml}
+
                 <div style="color: #0088CC; font-size: 18px; margin-top: 5px;">Informe de Evaluación - Día Preventivo</div>
             </td>
             <td width="50%" style="text-align: right;">
@@ -545,32 +563,20 @@ function formatearInformeIAPOS(contenidoIA, stats, tipoInforme, userPrompt) {
         </tr>
     </table>
 
-    <!-- CONTENIDO GENERADO POR IA -->
     <div style="line-height: 1.6;">
         ${contenidoIA.replace(/\n/g, '<br>')}
     </div>
 
-    <!-- PIE DE PÁGINA -->
     <div style="margin-top: 30px; padding-top: 15px; border-top: 2px solid #0066CC; color: #666; font-size: 12px;">
         <strong>Programa Día Preventivo IAPOS</strong> | Informe generado automáticamente | ${fecha}
     </div>
 </div>
 `;
 }
+
 function calcularEstadisticasCompletas(data) {
     const total = data.length;
-    if (total === 0) {
-        // Devuelve un objeto con valores en cero para evitar errores más adelante
-        return { 
-            totalCasos: 0, totalMujeres: 0, totalHombres: 0, adultos: 0, pediatrico: 0,
-            edadPromedio: 'N/D', edadMinima: 'N/D', edadMaxima: 'N/D',
-            prevalenciaDiabetes: '0.0', prevalenciaHipertension: '0.0', prevalenciaDislipemias: '0.0',
-            prevalenciaTabaquismo: '0.0', prevalenciaObesidad: '0.0', prevalenciaSobrepeso: '0.0',
-            enfermedadesCronicas: 0,
-            totalCancerMama: 0, totalCancerCervico: 0, totalCancerColon: 0, totalCancerProstata: 0,
-            totalVIH: 0, totalHepatitisB: 0, totalHepatitisC: 0, totalVDRL: 0, totalChagas: 0
-        };
-    }
+    if (total === 0) return { totalCasos: 0 }; // Devuelve un objeto con ceros si no hay datos
 
     // Objeto inicial para acumular los conteos
     let contadores = {
@@ -578,95 +584,106 @@ function calcularEstadisticasCompletas(data) {
         edades: [], diabetes: 0, hipertension: 0, dislipemias: 0,
         tabaquismo: 0, obesidad: 0, sobrepeso: 0, tieneEnfermedadCronica: 0,
         cancerMama: 0, cancerCervico: 0, cancerColon: 0, cancerProstata: 0,
-        vih: 0, hepatitisB: 0, hepatitisC: 0, vdrl: 0, chagas: 0
+        vih: 0, hepatitisB: 0, hepatitisC: 0, vdrl: 0, chagas: 0,
+        saludBucal: 0, saludRenal: 0, depresion: 0, epoc: 0,
+        agudezaVisual: 0, violencia: 0, consumoSustancias: 0,
+        sindromeMetabolico: 0, aneurismaAorta: 0, osteoporosis: 0, riesgoCaidas: 0,
+        sedentarismo: 0, seguridadVial: 0, alcoholismo: 0, vacunacionIncompleta: 0, acidoFolico: 0
     };
 
     // Recorremos los datos UNA SOLA VEZ para contar todo
     for (const r of data) {
-        // Sexo
-        const sexo = normalizeString(r.Sexo);
-        if (sexo === 'femenino') contadores.mujeres++;
-        if (sexo === 'masculino') contadores.hombres++;
-
-        // Edad
         const edad = parseInt(r.Edad, 10);
         if (!isNaN(edad)) {
             contadores.edades.push(edad);
             if (edad >= 18) contadores.adultos++;
             else contadores.pediatrico++;
         }
-
-        // Factores de Riesgo y Crónicas
+        if (normalizeString(r.Sexo) === 'femenino') contadores.mujeres++;
+        if (normalizeString(r.Sexo) === 'masculino') contadores.hombres++;
         const esDiabetico = normalizeString(r.Diabetes) === 'presenta';
         const esHipertenso = normalizeString(r['Presión Arterial']).includes('hipertens');
         const tieneDislipemia = normalizeString(r.Dislipemias) === 'presenta';
-
         if (esDiabetico) contadores.diabetes++;
         if (esHipertenso) contadores.hipertension++;
         if (tieneDislipemia) contadores.dislipemias++;
         if (esDiabetico || esHipertenso || tieneDislipemia) contadores.tieneEnfermedadCronica++;
-        
         if (normalizeString(r.Tabaco) === 'fuma') contadores.tabaquismo++;
-        
         const imc = normalizeString(r.IMC);
         if (imc.includes('obesidad')) contadores.obesidad++;
         if (imc.includes('sobrepeso')) contadores.sobrepeso++;
-        
-        // Cáncer
         if (normalizeString(r['Cáncer mama - Mamografía']) === 'patologico' || normalizeString(r['Cáncer mama - Eco mamaria']) === 'patologico') contadores.cancerMama++;
         if (normalizeString(r['Cáncer cérvico uterino - PAP']) === 'patologico' || normalizeString(r['Cáncer cérvico uterino - HPV']) === 'patologico') contadores.cancerCervico++;
         if (normalizeString(r['SOMF']) === 'patologico' || normalizeString(r['Cáncer colon - Colonoscopía']) === 'patologico') contadores.cancerColon++;
         if (normalizeString(r['Próstata - PSA']) === 'patologico') contadores.cancerProstata++;
-        
-        // Infecciosas
         if (normalizeString(r['VIH']) === 'positivo') contadores.vih++;
         if (normalizeString(r['Hepatitis B']) === 'positivo') contadores.hepatitisB++;
         if (normalizeString(r['Hepatitis C']) === 'positivo') contadores.hepatitisC++;
         if (normalizeString(r['VDRL']) === 'positivo') contadores.vdrl++;
         if (normalizeString(r['Chagas']) === 'positivo') contadores.chagas++;
+        if (normalizeString(r['Control Odontológico - Adultos']) === 'riesgo alto') contadores.saludBucal++;
+        if (normalizeString(r['ERC']) === 'patológico') contadores.saludRenal++;
+        if (normalizeString(r['Depresión']) === 'se verifica') contadores.depresion++;
+        if (normalizeString(r['EPOC']) === 'se verifica') contadores.epoc++;
+        if (normalizeString(r['Agudeza visual']) === 'alterada') contadores.agudezaVisual++;
+        if (normalizeString(r['Violencia']) === 'se verifica') contadores.violencia++;
+        if (normalizeString(r['Consumo de sustancias']) === 'problematico') contadores.consumoSustancias++;
+        if (normalizeString(r['Síndrome Metabólico']) === 'presenta') contadores.sindromeMetabolico++;
+        if (normalizeString(r['Aneurisma aorta']) === 'se verifica') contadores.aneurismaAorta++;
+        if (normalizeString(r['Osteoporosis']) === 'se verifica') contadores.osteoporosis++;
+        if (normalizeString(r['Caídas en adultos mayores']) === 'presenta') contadores.riesgoCaidas++;
+        if (normalizeString(r['Actividad física']) === 'no realiza') contadores.sedentarismo++;
+        if (normalizeString(r['Seguridad vial']) === 'no cumple') contadores.seguridadVial++;
+        if (normalizeString(r['Abuso alcohol']) === 'abusa') contadores.alcoholismo++;
+        if (normalizeString(r['Inmunizaciones']) === 'incompleto') contadores.vacunacionIncompleta++;
+        if (normalizeString(r['Ácido fólico']) === 'indicado') contadores.acidoFolico++;
     }
 
-    // Calculamos promedios y prevalencias a partir de los conteos
     const edadPromedio = contadores.edades.length > 0 ? (contadores.edades.reduce((a, b) => a + b, 0) / contadores.edades.length).toFixed(1) : 'N/D';
     const edadMin = contadores.edades.length > 0 ? Math.min(...contadores.edades) : 'N/D';
     const edadMax = contadores.edades.length > 0 ? Math.max(...contadores.edades) : 'N/D';
 
-    // Construimos el objeto final a devolver (limpio y ordenado)
     return {
         totalCasos: total,
         totalMujeres: contadores.mujeres,
         totalHombres: contadores.hombres,
         adultos: contadores.adultos,
         pediatrico: contadores.pediatrico,
-        
         edadPromedio: edadPromedio,
         edadMinima: edadMin,
         edadMaxima: edadMax,
-        
-        // Prevalencias
         prevalenciaDiabetes: ((contadores.diabetes / total) * 100).toFixed(1),
         prevalenciaHipertension: ((contadores.hipertension / total) * 100).toFixed(1),
         prevalenciaDislipemias: ((contadores.dislipemias / total) * 100).toFixed(1),
         prevalenciaTabaquismo: ((contadores.tabaquismo / total) * 100).toFixed(1),
         prevalenciaObesidad: ((contadores.obesidad / total) * 100).toFixed(1),
         prevalenciaSobrepeso: ((contadores.sobrepeso / total) * 100).toFixed(1),
-        
         enfermedadesCronicas: contadores.tieneEnfermedadCronica,
-        
-        // Datos de Cáncer
         totalCancerMama: contadores.cancerMama,
         totalCancerCervico: contadores.cancerCervico,
         totalCancerColon: contadores.cancerColon,
         totalCancerProstata: contadores.cancerProstata,
-        
-        // Datos de Infecciosas
         totalVIH: contadores.vih,
         totalHepatitisB: contadores.hepatitisB,
         totalHepatitisC: contadores.hepatitisC,
         totalVDRL: contadores.vdrl,
         totalChagas: contadores.chagas,
-
-        // Los datos adicionales que tenías (si los necesitas para otro lugar)
+        totalSaludBucalRiesgo: contadores.saludBucal,
+        totalSaludRenalPatologico: contadores.saludRenal,
+        totalDepresion: contadores.depresion,
+        totalEPOC: contadores.epoc,
+        totalAgudezaVisual: contadores.agudezaVisual,
+        totalViolencia: contadores.violencia,
+        totalConsumoSustancias: contadores.consumoSustancias,
+        totalSindromeMetabolico: contadores.sindromeMetabolico,
+        totalAneurismaAorta: contadores.aneurismaAorta,
+        totalOsteoporosis: contadores.osteoporosis,
+        totalRiesgoCaidas: contadores.riesgoCaidas,
+        totalSedentarismo: contadores.sedentarismo,
+        totalSeguridadVial: contadores.seguridadVial,
+        totalAlcoholismo: contadores.alcoholismo,
+        totalVacunacionIncompleta: contadores.vacunacionIncompleta,
+        totalAcidoFolico: contadores.acidoFolico, // <--- La última línea no necesita coma.
         distribucionSexo: {
             mujeres: contadores.mujeres,
             hombres: contadores.hombres,
