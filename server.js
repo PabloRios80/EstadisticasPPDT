@@ -60,16 +60,27 @@ async function loadTokens() {
         return false;
     }
 }
-
 function saveTokens(tokens) {
-    fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens));
-    console.log('Tokens guardados en token.json.');
+    // Log para saber dónde está intentando guardar el archivo
+    console.log(`[DEBUG] Intentando escribir el token en la ruta: ${TOKEN_PATH}`);
+
+    try {
+        // Intentamos escribir el archivo
+        fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens));
+
+        // Si tiene éxito, lo decimos
+        console.log(`✅ Token guardado exitosamente.`);
+
+    } catch (err) {
+        // Si falla, MOSTRAMOS EL ERROR DETALLADO
+        console.error(`❌ ERROR CRÍTICO AL INTENTAR GUARDAR EL TOKEN:`, err);
+    }
 }
 
 app.use(express.static(path.join(__dirname, 'public'), { index: 'estadisticas.html' }));
 app.use(express.json({ limit: '50mb' }));
 
-function normalizeString(str) {
+function normalizeString(str) { 
     if (!str) return '';
     return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 }
