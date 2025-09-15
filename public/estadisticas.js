@@ -2,8 +2,6 @@
 // **Asegúrate de que esta variable esté disponible globalmente y se actualice con los filtros.**
 let dashboardData = [];
 let datosFiltrados = []; 
-// Asegúrate de que esta variable 'dashboardData' esté declarada globalmente y se actualice con los filtros.
-// let dashboardData = [];
 
 function generarInformeVisualCompleto() {
     Swal.fire({
@@ -389,7 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const filtroAdultosBtn = document.getElementById('filtro-adultos');
     const filtroPediatricoBtn = document.getElementById('filtro-pediatrico');
     
-    let currentFilterType = 'Adultos';
+    let currentFilterType = 'Total';
     let currentFilteredData = [];
     
     const MODAL_CONTENT = {
@@ -452,7 +450,7 @@ function updateDashboardMetrics(filteredData) {
 
     async function initializeDashboard() {
         updateDate();
-        await fetchDataAndSetButtonState('Adultos');
+        await fetchDataAndSetButtonState('Total');
 
         filtroTotalBtn.addEventListener('click', () => {
             currentFilterType = 'Total';

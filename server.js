@@ -317,67 +317,95 @@ function determinarTipoInforme(userPrompt) {
 function generarPromptEspecifico(tipoInforme, stats, userPrompt, contexto) {
     // Usamos los datos de edad que ya calculamos. Si no existen, ponemos 'N/D'.
     const resumenEdad = `Edad promedio: ${stats.edadPromedio || 'N/D'}, Rango de edad: ${stats.edadMinima || 'N/D'} - ${stats.edadMaxima || 'N/D'}.`;
+
+    // --- LÓGICA INTELIGENTE: AQUÍ DECIDIMOS LAS INSTRUCCIONES A USAR ---
+    let instruccionesParaIA;
+
+    if (userPrompt && userPrompt.trim() !== '') {
+        // Opción A: Si el usuario escribió un prompt personalizado, usamos estas instrucciones concisas.
+        instruccionesParaIA = `
+        **TAREA PRINCIPAL:** Eres un analista de datos de salud. Tu única misión es responder de manera detallada y analítica a la siguiente solicitud específica del usuario, utilizando los datos estadísticos proporcionados como evidencia.
+
+        **SOLICITUD ESPECÍFICA DEL USUARIO:** "${userPrompt}"
+
+        **REGLAS PARA ESTA TAREA:**
+        - Enfócate exclusivamente en responder la pregunta del usuario. No generes un informe general por capítulos.
+        - Basa cada afirmación en los números de la sección de DATOS.
+        - Utiliza **negritas** para resaltar los datos y hallazgos más importantes en tu respuesta.
+        - Sé directo, claro y ofrece reflexiones sobre los datos que presentas.
+        `;
+    } else {
+        // Opción B: Si el cuadro de texto está vacío, usamos TU PROMPT COMPLETO Y ORIGINAL, sin quitar nada.
+        instruccionesParaIA = `
+        --------------------------------
+        TAREA PRINCIPAL
+        --------------------------------
+        Actúa como un experto en salud pública y epidemiología. Tu misión es redactar un informe ejecutivo claro, perspicaz y accionable sobre los resultados del programa "Día Preventivo IAPOS", basado ESTRICTAMENTE en el contexto y los datos estadísticos que te proporciono.
+
+        --------------------------------
+        INSTRUCCIONES Y ESTRUCTURA DEL INFORME (Tu guion)
+        --------------------------------
+
+        1. Introducción al Programa Día Preventivo:**
+           - **Tarea:** Usando la información del CONTEXTO, redacta un párrafo introductorio de 4-5 líneas que explique qué es el programa, su marco normativo y su importancia estratégica para la salud pública. Este debe ser el primer capítulo del informe.
+
+        2. Resumen Ejecutivo (Hallazgos Clave):**
+           - **Tarea:** Identifica los 3 o 4 hallazgos más impactantes o preocupantes de los DATOS ESTADÍSTICOS. Preséntalos en un párrafo conciso. No te limites a repetir los números; interpreta lo que significan.
+
+        3. Análisis Detallado por Capítulos:**
+           - **Tarea:** Para cada capítulo, no solo presentes el dato. **Explica sus implicaciones, reflexiona sobre por qué podría estar ocurriendo y, si es apropiado, sugiere una o dos líneas de acción o preguntas para futuras investigaciones.** Adopta un tono más analítico y menos robótico.
+             - "Análisis Global de la Población"
+             - "❤️ Riesgo Cardiovascular y Enfermedades Crónicas"
+             - "🎗️ Prevención de Cáncer"
+             - "🦠 Prevalencia de Enfermedades Infecciosas"
+             - "🚭 Hábitos y Estilo de Vida"
+
+        REGLAS DE INTERPRETACIÓN CLÍNICA (MUY IMPORTANTE):
+        - Un resultado de **SOMF+** o **HPV+** NO es un diagnóstico de cáncer. Debes describirlo como un **INDICADOR DE RIESGO ELEVADO** que requiere estudios adicionales.
+        - En cambio, un hallazgo patológico en **PAP** o **Colonoscopía** sí debe ser mencionado como un caso de **DETECCIÓN TEMPRANA DE CANCER**.
+        - Basa **TODAS** tus afirmaciones exclusivamente en los datos estadísticos proporcionados.
+
+        4. Conclusiones:** Finaliza con una sección titulada "Conclusiones". Más que hacer recomendaciones, enfócate en lo positivo del programa, los casos que se detectaron que pueden mejorar la calidad de vida y cómo es importante continuar en este camino.
+        
+        5. Estilo de Escritura:**
+           - Utiliza **negritas** para resaltar cifras, porcentajes y frases clave de alto impacto.
+           - Mantén un lenguaje técnico pero claro y accesible.
+           - Sé directo y conciso. No agregues texto de relleno.
+           - Basa **TODAS** tus afirmaciones exclusivamente en los datos estadísticos proporcionados arriba. Si un dato es 0, menciónalo como "no se detectaron casos" o "baja prevalencia". NO digas que "no hay datos".
+
+        REGLAS ESTRICTAS:
+        - Lenguaje técnico pero accesible
+        - Máximo 20 renglones por capítulo
+        - Enfoque en prevención y salud pública
+        - Basado exclusivamente en los datos proporcionados
+        - Formato profesional para informes médicos
+        - Sin preámbulos ni introducciones redundantes
+
+        RESPONDER ÚNICAMENTE CON EL CONTENIDO DEL INFORME.
+        
+        REGLA DE ORO:** Tienes permiso para "volar un poco más" en tu análisis y redacción, conectando los puntos y ofreciendo reflexiones, pero **NUNCA para inventar datos o conclusiones que no se sustenten en los números proporcionados.** Sé estricto con la evidencia.
+        `;
+    }
+    
+    // --- ARMADO FINAL DEL PROMPT ---
     return `
+    CONTEXTO DEL PROGRAMA IAPOS:
+    ${contexto}
+
+    DATOS ESTADÍSTICOS DEL GRUPO ANALIZADO:
+    - Total de personas: ${stats.totalCasos}
+    - Distribución por sexo: ${stats.totalMujeres} mujeres y ${stats.totalHombres} hombres.
+    - Distribución por edad: ${stats.adultos} adultos y ${stats.pediatrico} pediátricos. ${resumenEdad}
+    - Prevalencias de riesgo cardiovascular: Diabetes (${stats.prevalenciaDiabetes}%), Hipertensión (${stats.prevalenciaHipertension}%), Dislipemias (${stats.prevalenciaDislipemias}%), Tabaquismo (${stats.prevalenciaTabaquismo}%), Obesidad (${stats.prevalenciaObesidad}%), Sobrepeso (${stats.prevalenciaSobrepeso}%).
+    - Casos de Cáncer (screening patológico): Mama (${stats.totalCancerMama}), Cervicouterino (${stats.totalCancerCervico}), Colon (${stats.totalCancerColon}), Próstata (${stats.totalCancerProstata}).
+    - Casos de Infecciosas (screening positivo): VIH (${stats.totalVIH}), Hepatitis B (${stats.totalHepatitisB}), Hepatitis C (${stats.totalHepatitisC}), Sífilis/VDRL (${stats.totalVDRL}), Chagas (${stats.totalChagas}).
+    - Otros Indicadores: ${stats.totalSaludBucalRiesgo} con riesgo bucal, ${stats.totalSaludRenalPatologico} con ERC, ${stats.totalDepresion} con depresión, ${stats.totalEPOC} con EPOC, ${stats.totalAgudezaVisual} con agudeza visual alterada, ${stats.totalViolencia} casos de violencia, ${stats.totalSindromeMetabolico} con S. Metabólico, ${stats.totalSedentarismo} con sedentarismo, ${stats.totalAlcoholismo} casos de abuso de alcohol, ${stats.totalVacunacionIncompleta} con vacunas incompletas, ${stats.totalAcidoFolico} con indicación de ácido fólico.
+
     --------------------------------
-TAREA PRINCIPAL
---------------------------------
-Actúa como un experto en salud pública y epidemiología. Tu misión es redactar un informe ejecutivo claro, perspicaz y accionable sobre los resultados del programa "Día Preventivo IAPOS", basado ESTRICTAMENTE en el contexto y los datos estadísticos que te proporciono.
-
-CONTEXTO DEL PROGRAMA IAPOS:
-${contexto}
-- Total de personas: ${stats.totalCasos}
-- Distribución por sexo: ${stats.totalMujeres} mujeres y ${stats.totalHombres} hombres.
-- Distribución por edad: ${stats.adultos} adultos y ${stats.pediatrico} pediátricos. ${resumenEdad}
-- Prevalencias de riesgo cardiovascular: Diabetes (${stats.prevalenciaDiabetes}%), Hipertensión (${stats.prevalenciaHipertension}%), Dislipemias (${stats.prevalenciaDislipemias}%), Tabaquismo (${stats.prevalenciaTabaquismo}%), Obesidad (${stats.prevalenciaObesidad}%), Sobrepeso (${stats.prevalenciaSobrepeso}%).
-- Casos de Cáncer (screening patológico): Mama (${stats.totalCancerMama}), Cervicouterino (${stats.totalCancerCervico}), Colon (${stats.totalCancerColon}), Próstata (${stats.totalCancerProstata}).
-- Casos de Infecciosas (screening positivo): VIH (${stats.totalVIH}), Hepatitis B (${stats.totalHepatitisB}), Hepatitis C (${stats.totalHepatitisC}), Sífilis/VDRL (${stats.totalVDRL}), Chagas (${stats.totalChagas}).
-- Enfermedades crónicas: ${stats.enfermedadesCronicas} casos
-- Otros Indicadores: ${stats.totalSaludBucalRiesgo} con riesgo bucal, ${stats.totalSaludRenalPatologico} con ERC, ${stats.totalDepresion} con depresión, ${stats.totalEPOC} con EPOC, ${stats.totalAgudezaVisual} con agudeza visual alterada, ${stats.totalViolencia} casos de violencia, ${stats.totalSindromeMetabolico} con S. Metabólico, ${stats.totalSedentarismo} con sedentarismo, ${stats.totalAlcoholismo} casos de abuso de alcohol, ${stats.totalVacunacionIncompleta} con vacunas incompletas.
-SOLICITUD DEL USUARIO: "${userPrompt || 'Generar un informe completo y detallado.'}"
-
---------------------------------
-INSTRUCCIONES Y ESTRUCTURA DEL INFORME (Tu guion)
---------------------------------
-
-1. Introducción al Programa Día Preventivo:**
-   - **Tarea:** Usando la información del CONTEXTO, redacta un párrafo introductorio de 4-5 líneas que explique qué es el programa, su marco normativo y su importancia estratégica para la salud pública. Este debe ser el primer capítulo del informe.
-
-2. Resumen Ejecutivo (Hallazgos Clave):**
-   - **Tarea:** Identifica los 3 o 4 hallazgos más impactantes o preocupantes de los DATOS ESTADÍSTICOS. Preséntalos en un párrafo conciso. No te limites a repetir los números; interpreta lo que significan.
-
-3.  **Análisis Detallado por Capítulos:
-3. Análisis Detallado por Capítulos:**
-   - **Tarea:** Para cada capítulo, no solo presentes el dato. **Explica sus implicaciones, reflexiona sobre por qué podría estar ocurriendo y, si es apropiado, sugiere una o dos líneas de acción o preguntas para futuras investigaciones.** Adopta un tono más analítico y menos robótico.
-    -   "Análisis Global de la Población"
-    -   "❤️ Riesgo Cardiovascular y Enfermedades Crónicas"
-    -   "🎗️ Prevención de Cáncer"
-    -   "🦠 Prevalencia de Enfermedades Infecciosas"
-    -   "🚭 Hábitos y Estilo de Vida"
-
-**REGLAS DE INTERPRETACIÓN CLÍNICA (MUY IMPORTANTE):**
-- Un resultado de **SOMF+** o **HPV+** NO es un diagnóstico de cáncer. Debes describirlo como un **INDICADOR DE RIESGO ELEVADO** que requiere estudios adicionales como una colonoscopía o seguimiento ginecológico.
-- En cambio, un hallazgo patológico en **PAP** o **Colonoscopía** sí debe ser mencionado como un caso de **DETECCIÓN TEMPRANA DE CANCER**.
-- Basa **TODAS** tus afirmaciones exclusivamente en los datos estadísticos proporcionados. No inventes información. Si un dato es 0, menciónalo como "no se detectaron casos".
-
-4.  **Conclusiones y Recomendaciones:** Finaliza con una sección titulada "Conclusiones" mas que hacer  recomendaciones enfocate en lo positivo del programa, los casos que se detectaron y pueden mejorar la calidad de la vida de mucha gente y como continuar en este camino es muy importante.
-5.  **Estilo de Escritura:**
-    -   Utiliza **negritas** para resaltar cifras, porcentajes y frases clave de alto impacto.
-    -   Mantén un lenguaje técnico pero claro y accesible.
-    -   Sé directo y conciso. No agregues texto de relleno.
-    -   Basa **TODAS** tus afirmaciones exclusivamente en los datos estadísticos proporcionados arriba. Si un dato es 0, menciónalo como "no se detectaron casos" o "baja prevalencia". NO digas que "no hay datos".
-
-REGLAS ESTRICTAS:
-- Lenguaje técnico pero accesible
-- Máximo 20 renglones por capítulo
-- Enfoque en prevención y salud pública
-- Basado exclusivamente en los datos proporcionados
-- Formato profesional para informes médicos
-- Sin preámbulos ni introducciones redundantes
-
-RESPONDER ÚNICAMENTE CON EL CONTENIDO DEL INFORME.
-**REGLA DE ORO:** Tienes permiso para "volar un poco más" en tu análisis y redacción, conectando los puntos y ofreciendo reflexiones. Tu creatividad debe usarse para hacer el informe más legible y perspicaz, pero **NUNCA para inventar datos o conclusiones que no se sustenten en los números proporcionados.** Sé estricto con la evidencia.
-
-`;
+    INSTRUCCIONES PARA ESTE INFORME
+    --------------------------------
+    ${instruccionesParaIA}
+    `;
 }
 
 // Funciones de cálculo para los indicadores
@@ -541,8 +569,8 @@ function formatearInformeIAPOS(contenidoIA, stats, tipoInforme, userPrompt) {
     const logoHtml = logoBase64 
         // Si el logo existe, lo envuelve en un DIV circular con fondo azul
         ? `<div style="display: inline-block; background-color: #2563EB; border-radius: 50%; padding: 10px; line-height: 0;">
-               <img src="${logoBase64}" alt="Logo IAPOS" style="height: 50px; width: auto;">
-           </div>`
+                <img src="${logoBase64}" alt="Logo IAPOS" style="height: 50px; width: auto;">
+            </div>`
         // Si no, muestra el texto de respaldo
         : '<div style="color: #0066CC; font-size: 28px; font-weight: bold;">🏥 IAPOS</div>';
     

@@ -90,7 +90,7 @@
             <button id="mostrar-capitulos" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline">Capítulos de Salud</button>
             <button id="limpiar-filtros" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline hidden">Limpiar Filtros</button>
             <!-- BOTÓN NUEVO PARA INFORME VISUAL COMPLETO -->
-            <button onclick="generarInformeVisualCompleto()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-full">
+            <button onclick="generarInformeVisualCompleto()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-full hidden">
                 📋 Informe Visual Completo
             </button>
         </div>
@@ -147,7 +147,7 @@
 
         <div id="informe-ia" class="bg-white p-8 rounded-lg shadow-xl mb-8 hidden">
             <h2 class="text-2xl font-bold mb-4">Generar Informe con IA</h2>
-            <textarea id="prompt-usuario" class="w-full h-32 p-4 border rounded-md mb-4 resize-none" placeholder="Escribe instrucciones personalizadas para el informe..."></textarea>
+            <textarea id="prompt-usuario" class="w-full h-32 p-4 border rounded-md mb-4 resize-none" placeholder="OPCIONAL: Pide un análisis específico. (Ej: 'analizar casos de cáncer en mujeres mayores de 50') Si lo dejas en blanco, se generará el informe estándar."></textarea>
             <button id="generar-informe-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-full focus:outline-none focus:shadow-outline">Generar Informe</button>
             <button id="exportar-pdf-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full focus:outline-none focus:shadow-outline hidden">Exportar a PDF</button>
             <button id="imprimir-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full focus:outline-none focus:shadow-outline hidden">Imprimir</button>
