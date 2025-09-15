@@ -19,7 +19,7 @@ const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const REDIRECT_URI = 'http://localhost:3000/oauth2callback';
+const REDIRECT_URI = process.env.REDIRECT_URI || 'http://localhost:3000/oauth2callback';
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const axios = require('axios');
 
