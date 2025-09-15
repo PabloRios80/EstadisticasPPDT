@@ -1,3 +1,15 @@
+// --- ESPÍA DE DIAGNÓSTICO ---
+console.log("-----------------------------------------");
+console.log("--- VERIFICANDO VARIABLES DE ENTORNO ---");
+if (process.env.GOOGLE_TOKEN) {
+    console.log("La variable GOOGLE_TOKEN SÍ existe.");
+    console.log("Primeros 50 caracteres:", process.env.GOOGLE_TOKEN.substring(0, 50));
+} else {
+    console.log("La variable GOOGLE_TOKEN NO existe o está vacía.");
+}
+console.log("-----------------------------------------");
+// El resto de tu código sigue abajo...
+
 require('dotenv').config();
 const express = require('express');
 const { google } = require('googleapis');
