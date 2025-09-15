@@ -61,17 +61,34 @@ async function cargarContexto() {
     }
 }
 
+// En tu server.js, reemplaza la función loadTokens por esta:
 async function loadTokens() {
+    // PRIMERO: Intenta leer el token desde la variable de entorno en Render.
+    if (process.env.GOOGLE_TOKEN) {
+        try {
+            console.log('Token encontrado en la variable de entorno. Intentando usarlo...');
+            const tokens = JSON.parse(process.env.GOOGLE_TOKEN);
+            oauth2Client.setCredentials(tokens);
+            console.log('✅ Credenciales de Google cargadas exitosamente desde la variable de entorno.');
+            return true;
+        } catch (err) {
+            console.error('❌ Error al procesar el GOOGLE_TOKEN. Asegúrate de que el contenido copiado sea un JSON válido.', err);
+            return false;
+        }
+    }
+
+    // SEGUNDO: Si no está en Render (está en tu PC), buscará el archivo token.json.
     try {
         const tokens = JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf-8'));
         oauth2Client.setCredentials(tokens);
-        console.log('Tokens cargados con éxito.');
+        console.log('Tokens cargados con éxito desde archivo local.');
         return true;
     } catch (err) {
-        console.log('No se encontraron tokens. Se requiere autenticación.');
+        console.log('No se encontró el archivo token.json local. Se requiere autenticación.');
         return false;
     }
 }
+
 function saveTokens(tokens) {
     // Log para saber dónde está intentando guardar el archivo
     console.log(`[DEBUG] Intentando escribir el token en la ruta: ${TOKEN_PATH}`);
