@@ -30,7 +30,8 @@ const mountPath = '/opt/render/project/src/data';
 const dataPath = fs.existsSync(mountPath) ? mountPath : __dirname;
 const TOKEN_PATH = path.join(dataPath, 'token.json');
 
-if (!fs.existsSync(dataPath)) {
+// Asegúrate de que el directorio exista
+if (process.env.RENDER_DISK_MOUNT_PATH && !fs.existsSync(dataPath)) {
     fs.mkdirSync(dataPath, { recursive: true });
 }
 
