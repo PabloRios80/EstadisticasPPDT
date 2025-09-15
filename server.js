@@ -25,7 +25,14 @@ const axios = require('axios');
 
 const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly'];
-const TOKEN_PATH = path.join(__dirname, 'token.json');
+// CON ESTE BLOQUE:
+const mountPath = '/opt/render/project/src/data';
+const dataPath = fs.existsSync(mountPath) ? mountPath : __dirname;
+const TOKEN_PATH = path.join(dataPath, 'token.json');
+
+if (!fs.existsSync(dataPath)) {
+    fs.mkdirSync(dataPath, { recursive: true });
+}
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 let contextoDelPrograma = '';
