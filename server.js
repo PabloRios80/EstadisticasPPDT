@@ -552,7 +552,6 @@ function calcularIndicadoresCompletos(data) {
     
     return fixedIndicators;
 }
-
 app.post('/generar-informe', async (req, res) => {
     try {
         const { data, userPrompt } = req.body;
@@ -561,55 +560,52 @@ app.post('/generar-informe', async (req, res) => {
             return res.status(400).json({ error: 'No se recibieron datos para generar el informe.' });
         }
         
-        // Calcular TODAS las estadísticas necesarias
-        const totalCasos = data.length;
         const stats = calcularEstadisticasCompletas(data);
-
-        // Determinar el tipo de informe solicitado
         const tipoInforme = determinarTipoInforme(userPrompt);
         
-        console.log(`🌐 Generando informe tipo: ${tipoInforme}...`);
+        console.log(`🌐 Generando informe con el modelo gemini-2.5-pro...`);
         
         try {
-            const response = await axios.post(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-                {
-                    contents: [{
-                        parts: [{
-                            text: generarPromptEspecifico(tipoInforme, stats, userPrompt, contextoDelPrograma)
-                        }]
-                    }],
-                    generationConfig: {
-                        temperature: 0.7,
-                        maxOutputTokens: 4096,
-                        topP: 0.8
-                    }
-                },
-                {
-                    headers: { 'Content-Type': 'application/json' },
-                    timeout: 60000
-                }
-            );
+            // URL corregida con un modelo que SÍ está en tu lista
+            const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+            
+            const promptText = generarPromptEspecifico(tipoInforme, stats, userPrompt, contextoDelPrograma);
 
-            if (response.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
-                const contenidoIA = response.data.candidates[0].content.parts[0].text;
+            const requestBody = {
+                contents: [{
+                    parts: [{
+                        text: promptText
+                    }]
+                }]
+            };
+
+            const response = await axios.post(url, requestBody, {
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const contenidoIA = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            if (contenidoIA) {
                 const informeFormateado = formatearInformeIAPOS(contenidoIA, stats, tipoInforme, userPrompt);
-                
                 console.log('✅ Informe IAPOS formateado exitosamente');
                 return res.json({ informe: informeFormateado });
+            } else {
+                throw new Error('La respuesta de la IA vino vacía o con un formato inesperado.');
             }
 
         } catch (error) {
-            console.error('❌ Error con IA:', error.message);
+            console.error('❌ Error con IA:', error.response ? error.response.data.error : error.message);
             const informeAutomatico = generarInformeAutomatico(stats, userPrompt);
             return res.json({ informe: informeAutomatico });
         }
 
     } catch (error) {
-        console.error('💥 Error general:', error);
-        return res.status(500).json({ error: 'Error interno', message: error.message });
+        console.error('💥 Error general en /generar-informe:', error);
+        return res.status(500).json({ error: 'Error interno del servidor', message: error.message });
     }
 });
+
+
 function formatearInformeIAPOS(contenidoIA, stats, tipoInforme, userPrompt) {
     const fecha = new Date().toLocaleDateString('es-AR');
 

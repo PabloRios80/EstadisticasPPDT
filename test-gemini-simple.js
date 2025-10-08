@@ -13,9 +13,20 @@ console.log('🌐 Probando conexión con Gemini...');
 
 axios.get(`https://generativelanguage.googleapis.com/v1/models?key=${process.env.GEMINI_API_KEY}`)
     .then(response => {
-        console.log('✅ Conexión exitosa con Gemini API');
-        console.log('Modelos disponibles:', response.data.models ? response.data.models.length : 0);
-    })
+    console.log('✅ Conexión exitosa con Gemini API');
+    if (response.data.models) {
+        // Extraemos solo los nombres de los modelos de la respuesta
+        const modelNames = response.data.models.map(model => model.name);
+
+        console.log('--- LISTA DE MODELOS DISPONIBLES PARA TU API KEY ---');
+        console.log(modelNames);
+        console.log('----------------------------------------------------');
+        console.log('Por favor, revisa si "models/gemini-pro" está en esta lista.');
+
+    } else {
+        console.log('No se encontraron modelos.');
+    }
+})
     .catch(error => {
         console.log('❌ Error de conexión:');
         console.log('• Mensaje:', error.message);

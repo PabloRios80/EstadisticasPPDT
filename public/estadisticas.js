@@ -245,7 +245,8 @@ function generarInformeVisualCompleto() {
     };
 }
 document.addEventListener('DOMContentLoaded', () => {
-    // Función para normalizar cadenas (eliminar acentos y convertir a minúsculas)
+
+     // Función para normalizar cadenas (eliminar acentos y convertir a minúsculas)
     function normalizeString(str) {
         if (!str) return '';
         return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
@@ -386,10 +387,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const filtroTotalBtn = document.getElementById('filtro-total');
     const filtroAdultosBtn = document.getElementById('filtro-adultos');
     const filtroPediatricoBtn = document.getElementById('filtro-pediatrico');
-    
+    // --- CÓDIGO PARA BOTÓN DE INFORME CON IA ---
+    const iaBtn = document.getElementById('mostrar-ia-btn');
+    iaBtn.addEventListener('click', () => {
+        controlesFiltros.classList.add('hidden');
+        capitulosSalud.classList.add('hidden');
+        dashboardGraficos.classList.add('hidden');
+        informeIaSection.classList.remove('hidden');
+    });
+
     let currentFilterType = 'Total';
     let currentFilteredData = [];
-    
+    exportarPdfBtn.addEventListener('click', exportarVistaAPDF);
     const MODAL_CONTENT = {
         'indicador-casos': { titulo: 'Total de Casos (Días Preventivos)', descripcion: 'Este número representa el total de personas que han participado en el programa. Se calcula contando la cantidad de DNI únicos en el registro. Si una persona participó más de una vez, solo se considera su último registro para evitar duplicados.' },
         'indicador-mujeres': { titulo: 'Total de Mujeres', descripcion: 'Este es el número de mujeres registradas en el programa, calculado a partir de la columna "Sexo".' },
@@ -1030,44 +1039,41 @@ function generarInformeCompleto() {
             );
         });
 }
-    function exportReportToPdf() {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        
-        const element = contenedorInforme;
-        const originalMargin = element.style.margin;
-        const originalPadding = element.style.padding;
-        element.style.margin = '0';
-        element.style.padding = '0';
+function exportarVistaAPDF() {
+    const controles = document.getElementById('barra-de-controles');
+    const elementoParaConvertir = document.body;
 
-        html2canvas(element, {
-            scale: 2,
-            useCORS: true
-        }).then(canvas => {
-            const imgData = canvas.toDataURL('image/png');
-            const imgWidth = doc.internal.pageSize.getWidth() - 20;
-            const pageHeight = doc.internal.pageSize.getHeight();
-            const imgHeight = canvas.height * imgWidth / canvas.width;
-            let heightLeft = imgHeight;
-            let position = 10;
-
-            doc.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
-
-            while (heightLeft >= 0) {
-                position = heightLeft - imgHeight + 10;
-                doc.addPage();
-                doc.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
-            }
-
-            doc.save('informe-dia-preventivo.pdf');
-            
-            element.style.margin = originalMargin;
-            element.style.padding = originalPadding;
-        });
+    if (!elementoParaConvertir) {
+        Swal.fire('Error', 'No se encontró el contenido para exportar.', 'error');
+        return;
     }
 
+    Swal.fire({
+        title: 'Generando PDF',
+        html: 'Por favor, espera...',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    if (controles) controles.style.display = 'none';
+
+    html2canvas(elementoParaConvertir, {
+        scale: 2,
+        backgroundColor: '#ffffff'
+    }).then(canvas => {
+        const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+        const pdfWidth = 210;
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        const doc = new jsPDF('p', 'mm', 'a4');
+        doc.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        doc.save('informe-completo-iapos.pdf');
+    }).finally(() => {
+        if (controles) controles.style.display = 'block';
+        Swal.close();
+    });
+}
     function updateDate() {
         const today = new Date();
         const options = { year: 'numeric', month: 'long', day: 'numeric' };

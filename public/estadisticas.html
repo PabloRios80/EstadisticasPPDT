@@ -78,22 +78,23 @@
             <span id="fecha-actualizacion"></span>
         </div>
     </header>
-        <div class="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-4 mb-8 mt-8">
-            <div class="flex space-x-2">
-                <button id="filtro-total" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline">Total</button>
-                <button id="filtro-adultos" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline">Adultos</button>
-                <button id="filtro-pediatrico" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline">Pediátrico</button>
-            </div>
+    <div class="flex justify-center mb-6">
+        <div class="flex space-x-2 bg-gray-200 p-1 rounded-full">
+            <button id="filtro-total" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline">Total</button>
+            <button id="filtro-adultos" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline">Adultos</button>
+            <button id="filtro-pediatrico" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline">Pediátrico</button>
         </div>
-        <div class="flex space-x-4">
-            <button id="mostrar-controles" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline">Mostrar Cruces</button>
-            <button id="mostrar-capitulos" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline">Capítulos de Salud</button>
-            <button id="limpiar-filtros" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-full focus:outline-none focus:shadow-outline hidden">Limpiar Filtros</button>
-            <!-- BOTÓN NUEVO PARA INFORME VISUAL COMPLETO -->
-            <button onclick="generarInformeVisualCompleto()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-full hidden">
-                📋 Informe Visual Completo
-            </button>
+    </div>
+
+    <div class="flex flex-wrap justify-center gap-3 md:gap-4">
+            <button id="mostrar-ia-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-full">✨ Informe con IA</button>
+            <button id="mostrar-capitulos" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-full">Capítulos de Salud</button>
+            <button id="mostrar-controles" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-full">Mostrar Cruces</button>
+            <button id="exportar-excel-btn" class="bg-green-700 hover:bg-green-800 text-white font-bold py-2 px-4 rounded-full">📄 Exportar a Excel</button>
+            <button id="exportar-pdf-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full">🖨️ Exportar a PDF</button>
+            <button id="limpiar-filtros" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-full hidden">Limpiar Filtros</button>
         </div>
+    </div>
     </div>
     <div class="container mx-auto p-8">
         <div id="indicadores-principales" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
