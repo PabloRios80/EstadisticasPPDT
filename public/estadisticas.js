@@ -244,36 +244,21 @@ function generarInformeVisualCompleto() {
         }, 500);
     };
 }
+
 document.addEventListener('DOMContentLoaded', () => {
 
-     // Función para normalizar cadenas (eliminar acentos y convertir a minúsculas)
-    function normalizeString(str) {
-        if (!str) return '';
-        return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
-    }
-    function parseEdad(edadStr) {
-    if (!edadStr) return NaN;
-    const str = edadStr.toString().toLowerCase().trim();
+// =================================================================================
+    // 1. VARIABLES GLOBALES Y CONFIGURACIÓN
+    // =================================================================================
     
-    // Busca "X a" (años)
-    let match = str.match(/(\d+)\s*a/);
-    if (match) return parseInt(match[1], 10);
-    
-    // Busca "X m" (meses) y lo convierte a fracción de año
-    match = str.match(/(\d+)\s*m/);
-    if (match) {
-        // Divide los meses por 12 para obtener la fracción de año.
-        // Math.round(...) para redondear a un decimal.
-        return Math.round((parseInt(match[1], 10) / 12) * 10) / 10;
-    }
-    
-    // Si es solo un número, lo devuelve
-    const num = parseInt(str, 10);
-    if (!isNaN(num)) return num;
-    
-    return NaN;
-}
+    // Variables para guardar los datos
+    let allData = [];
+    let dashboardData = [];
+    let fixedIndicators = {};
+    const chartInstances = {};
+    let currentFilterType = 'Total';
 
+    
     const IAPOS_PREVENTIVE_PROGRAM_MENU = [
         {
             category: "Evaluación de Riesgo Cardiovascular y Enfermedades Crónicas",
@@ -358,9 +343,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     ];
 
-    let allData = [];
-    let fixedIndicators = {};
-    const chartInstances = {};
+    const MODAL_CONTENT = {
+        'indicador-casos': { titulo: 'Total de Casos (Días Preventivos)', descripcion: 'Este número representa el total de personas que han participado en el programa. Se calcula contando la cantidad de DNI únicos en el registro. Si una persona participó más de una vez, solo se considera su último registro para evitar duplicados.' },
+        'indicador-mujeres': { titulo: 'Total de Mujeres', descripcion: 'Este es el número de mujeres registradas en el programa, calculado a partir de la columna "Sexo".' },
+        'indicador-varones': { titulo: 'Total de Varones', descripcion: 'Este es el número de varones registrados en el programa, calculado a partir de la columna "Sexo".' },
+        'indicador-enfermedades-cronicas': { titulo: 'Total de Enfermedades Crónicas', descripcion: 'Este número representa el total de casos en el programa que han sido registrados con un diagnóstico de diabetes, hipertensión o dislipemias. Se calcula sumando los registros "Presenta" en las columnas de "Diabetes" y "Dislipemias", y los registros de "Hipertensión" en la columna de "Presión Arterial".' },
+        'indicador-alto-riesgo': { titulo: 'Casos de Alto Riesgo', descripcion: 'Este número muestra a las personas que presentan al menos uno de los siguientes factores de riesgo: <br>• Edad mayor a 50 años <br>• Diagnóstico de Diabetes <br>• Diagnóstico de Hipertensión <br>• Diagnóstico de Obesidad o Sobrepeso <br>• Hábito de Fumar' }
+    };
+
+    
     const infoModal = document.getElementById('info-modal');
     const modalTitulo = document.getElementById('modal-titulo');
     const modalContenido = document.getElementById('modal-contenido');
@@ -382,11 +373,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const generarInformeBtn = document.getElementById('generar-informe-btn');
     const promptUsuario = document.getElementById('prompt-usuario');
     const contenedorInforme = document.getElementById('contenedor-informe');
-    const exportarPdfBtn = document.getElementById('exportar-pdf-btn');
+    const exportarInformeIaPdfBtn = document.getElementById('exportar-informe-ia-pdf-btn');
     const imprimirBtn = document.getElementById('imprimir-btn');
     const filtroTotalBtn = document.getElementById('filtro-total');
     const filtroAdultosBtn = document.getElementById('filtro-adultos');
     const filtroPediatricoBtn = document.getElementById('filtro-pediatrico');
+    const exportarVistaPdfBtn = document.getElementById('exportar-vista-pdf-btn');
+     // Conexión para el botón del INFORME DE IA (id="exportar-pdf-btn")
+    exportarInformeIaPdfBtn.addEventListener('click', exportReportToPdf);
+
+    // Conexión para el botón de la "FOTO" DEL DASHBOARD (id="exportar-vista-pdf-btn")
+    exportarVistaPdfBtn.addEventListener('click', exportarVistaAPDF);
+
     // --- CÓDIGO PARA BOTÓN DE INFORME CON IA ---
     const iaBtn = document.getElementById('mostrar-ia-btn');
     iaBtn.addEventListener('click', () => {
@@ -396,18 +394,37 @@ document.addEventListener('DOMContentLoaded', () => {
         informeIaSection.classList.remove('hidden');
     });
 
-    let currentFilterType = 'Total';
     let currentFilteredData = [];
-    exportarPdfBtn.addEventListener('click', exportarVistaAPDF);
-    const MODAL_CONTENT = {
-        'indicador-casos': { titulo: 'Total de Casos (Días Preventivos)', descripcion: 'Este número representa el total de personas que han participado en el programa. Se calcula contando la cantidad de DNI únicos en el registro. Si una persona participó más de una vez, solo se considera su último registro para evitar duplicados.' },
-        'indicador-mujeres': { titulo: 'Total de Mujeres', descripcion: 'Este es el número de mujeres registradas en el programa, calculado a partir de la columna "Sexo".' },
-        'indicador-varones': { titulo: 'Total de Varones', descripcion: 'Este es el número de varones registrados en el programa, calculado a partir de la columna "Sexo".' },
-        'indicador-enfermedades-cronicas': { titulo: 'Total de Enfermedades Crónicas', descripcion: 'Este número representa el total de casos en el programa que han sido registrados con un diagnóstico de diabetes, hipertensión o dislipemias. Se calcula sumando los registros "Presenta" en las columnas de "Diabetes" y "Dislipemias", y los registros de "Hipertensión" en la columna de "Presión Arterial".' },
-        'indicador-alto-riesgo': { titulo: 'Casos de Alto Riesgo', descripcion: 'Este número muestra a las personas que presentan al menos uno de los siguientes factores de riesgo: <br>• Edad mayor a 50 años <br>• Diagnóstico de Diabetes <br>• Diagnóstico de Hipertensión <br>• Diagnóstico de Obesidad o Sobrepeso <br>• Hábito de Fumar' }
-    };
+    
     
     initializeDashboard();
+     // Función para normalizar cadenas (eliminar acentos y convertir a minúsculas)
+    function normalizeString(str) {
+        if (!str) return '';
+        return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+    }
+    function parseEdad(edadStr) {
+    if (!edadStr) return NaN;
+    const str = edadStr.toString().toLowerCase().trim();
+    
+    // Busca "X a" (años)
+    let match = str.match(/(\d+)\s*a/);
+    if (match) return parseInt(match[1], 10);
+    
+    // Busca "X m" (meses) y lo convierte a fracción de año
+    match = str.match(/(\d+)\s*m/);
+    if (match) {
+        // Divide los meses por 12 para obtener la fracción de año.
+        // Math.round(...) para redondear a un decimal.
+        return Math.round((parseInt(match[1], 10) / 12) * 10) / 10;
+    }
+    
+    // Si es solo un número, lo devuelve
+    const num = parseInt(str, 10);
+    if (!isNaN(num)) return num;
+    
+    return NaN;
+}
 
 function updateDashboardMetrics(filteredData) {
     // Si no hay datos, muestra 0 para evitar errores.
@@ -923,9 +940,10 @@ async function fetchDataAndSetButtonState(tipo) {
             
             if (result.informe) {
                 // Reemplazar saltos de línea con <br> para HTML
-                const formattedText = result.informe.replace(/\n/g, '<br>');
-                contenedorInforme.innerHTML = `<div>${formattedText}</div>`;
-                exportarPdfBtn.classList.remove('hidden');
+                //const formattedText = result.informe.replace(/\n/g, '<br>');
+                //contenedorInforme.innerHTML = `<div>${formattedText}</div>`;
+                contenedorInforme.innerHTML = result.informe;
+                exportarInformeIaPdfBtn.classList.remove('hidden');
                 imprimirBtn.classList.remove('hidden');
             } else {
                 contenedorInforme.innerHTML = `<p class="text-red-500">Error: No se pudo generar el informe.</p>`;
@@ -1039,14 +1057,36 @@ function generarInformeCompleto() {
             );
         });
 }
+
+function exportReportToPdf() {
+    const { jsPDF } = window.jspdf;
+    const reportContainer = document.getElementById('contenedor-informe');
+
+    if (!reportContainer) return;
+
+    Swal.fire({
+        title: 'Exportando a PDF',
+        html: 'Por favor, espera...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    html2canvas(reportContainer, { scale: 2 })
+    .then(canvas => {
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        pdf.save("informe-ia-iapos.pdf");
+        Swal.close();
+    });
+}
+
 function exportarVistaAPDF() {
     const controles = document.getElementById('barra-de-controles');
     const elementoParaConvertir = document.body;
-
-    if (!elementoParaConvertir) {
-        Swal.fire('Error', 'No se encontró el contenido para exportar.', 'error');
-        return;
-    }
 
     Swal.fire({
         title: 'Generando PDF',
@@ -1056,21 +1096,35 @@ function exportarVistaAPDF() {
         didOpen: () => Swal.showLoading()
     });
 
-    if (controles) controles.style.display = 'none';
+    // Buscamos el contenedor del mensaje de carga para ocultarlo también
+    const swalContainer = document.querySelector('.swal2-container');
+
+    // Ocultamos los elementos que no queremos en el PDF
+    if (controles) controles.style.visibility = 'hidden';
+    if (swalContainer) swalContainer.style.visibility = 'hidden';
 
     html2canvas(elementoParaConvertir, {
         scale: 2,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        // Nos aseguramos de capturar toda la página, incluso si hay scroll
+        windowHeight: window.innerHeight,
+        windowWidth: window.innerWidth,
+        y: window.scrollY
     }).then(canvas => {
         const imgData = canvas.toDataURL('image/png');
         const { jsPDF } = window.jspdf;
-        const pdfWidth = 210;
+        
+        const pdfWidth = 210; // Ancho A4
         const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        
         const doc = new jsPDF('p', 'mm', 'a4');
         doc.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
         doc.save('informe-completo-iapos.pdf');
+
     }).finally(() => {
-        if (controles) controles.style.display = 'block';
+        // MUY IMPORTANTE: Volvemos a mostrar todo, sin importar si hubo un error o no
+        if (controles) controles.style.visibility = 'visible';
+        if (swalContainer) swalContainer.style.visibility = 'visible';
         Swal.close();
     });
 }

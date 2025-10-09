@@ -363,99 +363,80 @@ function determinarTipoInforme(userPrompt) {
     return 'completo';
 }
 function generarPromptEspecifico(tipoInforme, stats, userPrompt, contexto) {
-    // Usamos los datos de edad que ya calculamos. Si no existen, ponemos 'N/D'.
     const resumenEdad = `Edad promedio: ${stats.edadPromedio || 'N/D'}, Rango de edad: ${stats.edadMinima || 'N/D'} - ${stats.edadMaxima || 'N/D'}.`;
 
-    // --- LÓGICA INTELIGENTE: AQUÍ DECIDIMOS LAS INSTRUCCIONES A USAR ---
+    // --- SECCIÓN PRE-ESCRITA PARA EL ANÁLISIS DE CÁNCER (LA SOLUCIÓN QUE FUNCIONA) ---
+    const textoAnalisisCancer = `Para Cáncer Cervicouterino, el programa identificó a **${stats.deteccionCancerCervico_PAP}** casos de **detección temprana** (a través de PAP) y **${stats.riesgoCancerCervico_HPV}** personas con **alto riesgo** (por HPV+), quienes requieren seguimiento prioritario. En cuanto al Cáncer de Colon, se lograron **${stats.deteccionCancerColon_Colono}** **detecciones tempranas** mediante colonoscopía y se identificaron **${stats.riesgoCancerColon_SOMF}** personas con **alto riesgo** (por SOMF+). Para Cáncer de Mama, se registraron **${stats.totalCancerMama}** detecciones, y en hombres, se encontraron **${stats.totalCancerProstata}** casos con PSA alterado.`;
+    // --- FIN DE LA SECCIÓN ---
+
     let instruccionesParaIA;
 
     if (userPrompt && userPrompt.trim() !== '') {
-        // Opción A: Si el usuario escribió un prompt personalizado, usamos estas instrucciones concisas.
+        // Opción A: Si el usuario escribió un prompt personalizado.
         instruccionesParaIA = `
         **TAREA PRINCIPAL:** Eres un analista de datos de salud. Tu única misión es responder de manera detallada y analítica a la siguiente solicitud específica del usuario, utilizando los datos estadísticos proporcionados como evidencia.
-
         **SOLICITUD ESPECÍFICA DEL USUARIO:** "${userPrompt}"
-
         **REGLAS PARA ESTA TAREA:**
         - Enfócate exclusivamente en responder la pregunta del usuario. No generes un informe general por capítulos.
         - Basa cada afirmación en los números de la sección de DATOS.
-        - Utiliza **negritas** para resaltar los datos y hallazgos más importantes en tu respuesta.
-        - Sé directo, claro y ofrece reflexiones sobre los datos que presentas.
-        `;
+        - Utiliza **negritas** para resaltar los datos y hallazgos más importantes en tu respuesta.`;
     } else {
-        // Opción B: Si el cuadro de texto está vacío, usamos TU PROMPT COMPLETO Y ORIGINAL, sin quitar nada.
+        // Opción B: Si el cuadro de texto está vacío, se usa el prompt completo para el informe general.
         instruccionesParaIA = `
-        --------------------------------
-        TAREA PRINCIPAL
-        --------------------------------
-        Actúa como un experto en salud pública y epidemiología. Tu misión es redactar un informe ejecutivo claro, perspicaz y accionable sobre los resultados del programa "Día Preventivo IAPOS", basado ESTRICTAMENTE en el contexto y los datos estadísticos que te proporciono.
+        **TAREA PRINCIPAL:** Actúa como un analista experto en salud pública para la provincia de Santa Fe, Argentina. Tu misión es redactar un informe ejecutivo claro y perspicaz sobre los resultados del programa "Día Preventivo IAPOS", comparando los hallazgos con estadísticas provinciales.
 
-        --------------------------------
-        INSTRUCCIONES Y ESTRUCTURA DEL INFORME (Tu guion)
-        --------------------------------
+        **INSTRUCCIONES Y ESTRUCTURA DEL INFORME:**
 
-        1. Introducción al Programa Día Preventivo:**
-           - **Tarea:** Usando la información del CONTEXTO, redacta un párrafo introductorio de 4-5 líneas que explique qué es el programa, su marco normativo y su importancia estratégica para la salud pública. Este debe ser el primer capítulo del informe.
+        1.  **Introducción:** Usando el CONTEXTO, redacta un párrafo de 4-5 líneas sobre la misión del programa.
 
-        2. Resumen Ejecutivo (Hallazgos Clave):**
-           - **Tarea:** Identifica los 3 o 4 hallazgos más impactantes o preocupantes de los DATOS ESTADÍSTICOS. Preséntalos en un párrafo conciso. No te limites a repetir los números; interpreta lo que significan.
+        2.  **Resumen Ejecutivo:** Identifica los 3 o 4 hallazgos más impactantes de los DATOS, especialmente donde la prevalencia del programa difiera de la media poblacional.
 
-        3. Análisis Detallado por Capítulos:**
-           - **Tarea:** Para cada capítulo, no solo presentes el dato. **Explica sus implicaciones, reflexiona sobre por qué podría estar ocurriendo y, si es apropiado, sugiere una o dos líneas de acción o preguntas para futuras investigaciones.** Adopta un tono más analítico y menos robótico.
-             - "Análisis Global de la Población"
-             - "❤️ Riesgo Cardiovascular y Enfermedades Crónicas"
-             - "🎗️ Prevención de Cáncer"
-             - "🦠 Prevalencia de Enfermedades Infecciosas"
-             - "🚭 Hábitos y Estilo de Vida"
-
-        REGLAS DE INTERPRETACIÓN CLÍNICA (MUY IMPORTANTE):
-        - Un resultado de **SOMF+** o **HPV+** NO es un diagnóstico de cáncer. Debes describirlo como un **INDICADOR DE RIESGO ELEVADO** que requiere estudios adicionales.
-        - En cambio, un hallazgo patológico en **PAP** o **Colonoscopía** sí debe ser mencionado como un caso de **DETECCIÓN TEMPRANA DE CANCER**.
-        - Basa **TODAS** tus afirmaciones exclusivamente en los datos estadísticos proporcionados.
-
-        4. Conclusiones:** Finaliza con una sección titulada "Conclusiones". Más que hacer recomendaciones, enfócate en lo positivo del programa, los casos que se detectaron que pueden mejorar la calidad de vida y cómo es importante continuar en este camino.
+        3.  **Análisis Detallado por Capítulos:**
+            -   **Tarea Central:** Para cada patología, presenta el dato del programa y **compáralo con la estadística de prevalencia más actualizada que encuentres para Santa Fe o Argentina**. Ofrece una breve reflexión sobre la comparación.
+            -   **Capítulos a incluir:**
+                -   "Análisis Global de la Población"
+                -   "❤️ Riesgo Cardiovascular y Enfermedades Crónicas"
+                -   "🎗️ Prevención de Cáncer"
+                    -   **Sub-Tarea Obligatoria para Cáncer:** Para esta sección, **INSERTA EL SIGUIENTE BLOQUE DE TEXTO DE FORMA LITERAL:**
+                        ---
+                        ${textoAnalisisCancer}
+                        ---
+                -   "🦠 Prevalencia de Enfermedades Infecciosas"
+                -   "⚕️ Otros Indicadores de Salud Relevantes"
         
-        5. Estilo de Escritura:**
-           - Utiliza **negritas** para resaltar cifras, porcentajes y frases clave de alto impacto.
-           - Mantén un lenguaje técnico pero claro y accesible.
-           - Sé directo y conciso. No agregues texto de relleno.
-           - Basa **TODAS** tus afirmaciones exclusivamente en los datos estadísticos proporcionados arriba. Si un dato es 0, menciónalo como "no se detectaron casos" o "baja prevalencia". NO digas que "no hay datos".
+        4.  **Conclusiones:** Enfócate en el impacto positivo del programa.
 
-        REGLAS ESTRICTAS:
-        - Lenguaje técnico pero accesible
-        - Máximo 20 renglones por capítulo
-        - Enfoque en prevención y salud pública
-        - Basado exclusivamente en los datos proporcionados
-        - Formato profesional para informes médicos
-        - Sin preámbulos ni introducciones redundantes
+        5.  **Fuentes de Datos Externos:** Al final del informe, crea una sección titulada "Fuentes" y lista las fuentes que usaste para las estadísticas provinciales/nacionales.
 
-        RESPONDER ÚNICAMENTE CON EL CONTENIDO DEL INFORME.
-        
-        REGLA DE ORO:** Tienes permiso para "volar un poco más" en tu análisis y redacción, conectando los puntos y ofreciendo reflexiones, pero **NUNCA para inventar datos o conclusiones que no se sustenten en los números proporcionados.** Sé estricto con la evidencia.
-        `;
+        **REGLAS DE FORMATO Y ESTILO:**
+        -   El informe debe comenzar directamente con la "Introducción". **NO incluyas encabezados formales como 'Para:', 'De:', 'Asunto:' o 'Fecha:'.**
+        -   Basa **TODAS** tus afirmaciones en los datos proporcionados.`;
     }
     
     // --- ARMADO FINAL DEL PROMPT ---
     return `
-    CONTEXTO DEL PROGRAMA IAPOS:
+    ${instruccionesParaIA}
+
+    --------------------------------
+    CONTEXTO Y DATOS DE REFERENCIA
+    --------------------------------
+    
+    **Contexto del Programa:**
     ${contexto}
 
-    DATOS ESTADÍSTICOS DEL GRUPO ANALIZADO:
+    **Datos Estadísticos del Grupo Analizado:**
     - Total de personas: ${stats.totalCasos}
     - Distribución por sexo: ${stats.totalMujeres} mujeres y ${stats.totalHombres} hombres.
     - Distribución por edad: ${stats.adultos} adultos y ${stats.pediatrico} pediátricos. ${resumenEdad}
-    - Prevalencias de riesgo cardiovascular: Diabetes (${stats.prevalenciaDiabetes}%), Hipertensión (${stats.prevalenciaHipertension}%), Dislipemias (${stats.prevalenciaDislipemias}%), Tabaquismo (${stats.prevalenciaTabaquismo}%), Obesidad (${stats.prevalenciaObesidad}%), Sobrepeso (${stats.prevalenciaSobrepeso}%).
-    - Casos de Cáncer (screening patológico): Mama (${stats.totalCancerMama}), Cervicouterino (${stats.totalCancerCervico}), Colon (${stats.totalCancerColon}), Próstata (${stats.totalCancerProstata}).
-    - Casos de Infecciosas (screening positivo): VIH (${stats.totalVIH}), Hepatitis B (${stats.totalHepatitisB}), Hepatitis C (${stats.totalHepatitisC}), Sífilis/VDRL (${stats.totalVDRL}), Chagas (${stats.totalChagas}).
-    - Otros Indicadores: ${stats.totalSaludBucalRiesgo} con riesgo bucal, ${stats.totalSaludRenalPatologico} con ERC, ${stats.totalDepresion} con depresión, ${stats.totalEPOC} con EPOC, ${stats.totalAgudezaVisual} con agudeza visual alterada, ${stats.totalViolencia} casos de violencia, ${stats.totalSindromeMetabolico} con S. Metabólico, ${stats.totalSedentarismo} con sedentarismo, ${stats.totalAlcoholismo} casos de abuso de alcohol, ${stats.totalVacunacionIncompleta} con vacunas incompletas, ${stats.totalAcidoFolico} con indicación de ácido fólico.
-
-    --------------------------------
-    INSTRUCCIONES PARA ESTE INFORME
-    --------------------------------
-    ${instruccionesParaIA}
+    - Riesgo Cardiovascular: Diabetes (${stats.prevalenciaDiabetes}%), Hipertensión (${stats.prevalenciaHipertension}%), Dislipemias (${stats.prevalenciaDislipemias}%), Tabaquismo (${stats.prevalenciaTabaquismo}%), Obesidad (${stats.prevalenciaObesidad}%), Sobrepeso (${stats.prevalenciaSobrepeso}%).
+    - C. de Mama (Detección): ${stats.totalCancerMama}
+    - C. de Próstata (PSA alterado): ${stats.totalCancerProstata}
+    - C. Cervicouterino: ${stats.riesgoCancerCervico_HPV} riesgo (HPV+), ${stats.deteccionCancerCervico_PAP} detección (PAP).
+    - C. de Colon: ${stats.riesgoCancerColon_SOMF} riesgo (SOMF+), ${stats.deteccionCancerColon_Colono} detección (Colonoscopía).
+    - Infecciosas (Screening): ${stats.totalVIH} VIH+, ${stats.totalHepatitisB} Hep B+, ${stats.totalHepatitisC} Hep C+, ${stats.totalVDRL} VDRL+, ${stats.totalChagas} Chagas+.
+    - Otros Indicadores: ${stats.totalSaludBucalRiesgo} con riesgo bucal, ${stats.totalSaludRenalPatologico} con ERC, ${stats.totalDepresion} con depresión, ${stats.totalEPOC} con EPOC, ${stats.totalAgudezaVisual} con agudeza visual alterada.
     `;
 }
-
 // Funciones de cálculo para los indicadores
 function calcularCancerMama(data) {
     return data.filter(r => 
@@ -656,6 +637,7 @@ function calcularEstadisticasCompletas(data) {
         edades: [], diabetes: 0, hipertension: 0, dislipemias: 0,
         tabaquismo: 0, obesidad: 0, sobrepeso: 0, tieneEnfermedadCronica: 0,
         cancerMama: 0, cancerCervico: 0, cancerColon: 0, cancerProstata: 0,
+        riesgoHPV: 0, deteccionPAP: 0, riesgoSOMF: 0, deteccionColono: 0,
         vih: 0, hepatitisB: 0, hepatitisC: 0, vdrl: 0, chagas: 0,
         saludBucal: 0, saludRenal: 0, depresion: 0, epoc: 0,
         agudezaVisual: 0, violencia: 0, consumoSustancias: 0,
@@ -688,6 +670,12 @@ function calcularEstadisticasCompletas(data) {
         if (normalizeString(r['Cáncer cérvico uterino - PAP']) === 'patologico' || normalizeString(r['Cáncer cérvico uterino - HPV']) === 'patologico') contadores.cancerCervico++;
         if (normalizeString(r['SOMF']) === 'patologico' || normalizeString(r['Cáncer colon - Colonoscopía']) === 'patologico') contadores.cancerColon++;
         if (normalizeString(r['Próstata - PSA']) === 'patologico') contadores.cancerProstata++;
+         // --- LÓGICA DE CONTEO SEPARADA (LA CLAVE DEL ARREGLO) ---
+        if (normalizeString(r['Cáncer cérvico uterino - HPV']) === 'patologico') contadores.riesgoHPV++;
+        if (normalizeString(r['Cáncer cérvico uterino - PAP']) === 'patologico') contadores.deteccionPAP++;
+        if (normalizeString(r['SOMF']) === 'patologico') contadores.riesgoSOMF++;
+        if (normalizeString(r['Cáncer colon - Colonoscopía']) === 'patologico') contadores.deteccionColono++;
+        // --- FIN DE LA CLAVE ---
         if (normalizeString(r['VIH']) === 'positivo') contadores.vih++;
         if (normalizeString(r['Hepatitis B']) === 'positivo') contadores.hepatitisB++;
         if (normalizeString(r['Hepatitis C']) === 'positivo') contadores.hepatitisC++;
@@ -735,6 +723,12 @@ function calcularEstadisticasCompletas(data) {
         totalCancerCervico: contadores.cancerCervico,
         totalCancerColon: contadores.cancerColon,
         totalCancerProstata: contadores.cancerProstata,
+        // --- PROPIEDADES SEPARADAS PARA EL PROMPT (LA CLAVE DEL ARREGLO) ---
+        riesgoCancerCervico_HPV: contadores.riesgoHPV,
+        deteccionCancerCervico_PAP: contadores.deteccionPAP,
+        riesgoCancerColon_SOMF: contadores.riesgoSOMF,
+        deteccionCancerColon_Colono: contadores.deteccionColono,
+        // --- FIN DE LA CLAVE ---
         totalVIH: contadores.vih,
         totalHepatitisB: contadores.hepatitisB,
         totalHepatitisC: contadores.hepatitisC,
