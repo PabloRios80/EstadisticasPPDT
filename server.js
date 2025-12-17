@@ -205,35 +205,85 @@ app.get('/obtener-opciones-campo/:campo', async (req, res) => {
         res.status(500).json({ error: 'Error del servidor al obtener opciones' });
     }
 });
-
 app.get('/obtener-datos-completos', async (req, res) => {
     try {
         const authClient = await getAuthenticatedClient();
         const sheets = google.sheets({ version: 'v4', auth: authClient });
-        const sheetName = 'Integrado';
-        const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: SPREADSHEET_ID,
-            range: `${sheetName}!A:DM`,
-            valueRenderOption: 'UNFORMATTED_VALUE',
-            dateTimeRenderOption: 'FORMATTED_STRING'
+
+        // --- CAMBIO IMPORTANTE: Probamos con Mayúscula en 'Seguridad' ---
+        // Verifica en tu Google Sheet si la pestaña se llama "Seguridad" o "seguridad"
+        const sources = [
+            { sheetName: 'Integrado', label: 'General' },
+            { sheetName: 'Seguridad', label: 'Seguridad' } 
+        ];
+
+        console.log("📥 Iniciando carga de datos multi-pestaña...");
+
+        const promises = sources.map(async (source) => {
+            try {
+                console.log(`🔎 Buscando pestaña: "${source.sheetName}"...`);
+                
+                const response = await sheets.spreadsheets.values.get({
+                    spreadsheetId: SPREADSHEET_ID,
+                    range: `${source.sheetName}!A:DM`, 
+                    valueRenderOption: 'UNFORMATTED_VALUE',
+                    dateTimeRenderOption: 'FORMATTED_STRING'
+                });
+
+                const values = response.data.values;
+                
+                if (!values || values.length === 0) {
+                    console.warn(`⚠️ La pestaña "${source.sheetName}" se encontró pero ESTÁ VACÍA.`);
+                    return [];
+                }
+
+                console.log(`✅ Pestaña "${source.sheetName}" leída correctamente: ${values.length - 1} registros encontrados.`);
+
+                const headers = values[0];
+                const rows = values.slice(1);
+
+                return rows.map(row => {
+                    const obj = {};
+                    headers.forEach((header, index) => {
+                        if (header) obj[header] = row[index];
+                    });
+
+                    // Corrección de nombres
+                    if (!obj['Apellido y Nombre']) {
+                        const apellido = obj['Apellido'] || '';
+                        const nombre = obj['Nombre'] || '';
+                        if (apellido || nombre) {
+                            obj['Apellido y Nombre'] = `${apellido}, ${nombre}`.trim();
+                        }
+                    }
+
+                    // Etiqueta de población
+                    obj['Poblacion'] = source.label; 
+                    return obj;
+                });
+
+            } catch (error) {
+                // AQUÍ VEREMOS SI EL NOMBRE ESTÁ MAL
+                console.error(`❌ ERROR CRÍTICO leyendo pestaña "${source.sheetName}":`, error.message);
+                return []; 
+            }
         });
 
-        const [headers, ...rows] = response.data.values;
-        const data = rows.map(row => {
-            const obj = {};
-            headers.forEach((header, index) => {
-                obj[header] = row[index];
-            });
-            return obj;
-        });
+        const results = await Promise.all(promises);
+        const allRows = results.flat();
+
+        console.log(`📊 TOTAL FINAL: ${allRows.length} registros cargados en memoria.`);
+        console.log(`   - General: ${allRows.filter(r => r.Poblacion === 'General').length}`);
+        console.log(`   - Seguridad: ${allRows.filter(r => r.Poblacion === 'Seguridad').length}`);
 
         const tipo = req.query.tipo;
-        const filteredData = tipo ? data.filter(row => normalizeString(row['Tipo']) === normalizeString(tipo)) : data;
+        const filteredData = tipo ? allRows.filter(row => normalizeString(row['Tipo']) === normalizeString(tipo)) : allRows;
 
         res.json(filteredData);
+
     } catch (error) {
-        console.error('Error al obtener todos los datos:', error);
-        res.status(500).json({ error: 'Error del servidor al obtener todos los datos' });
+        console.error('Error general en obtener-datos-completos:', error);
+        res.status(500).json({ error: 'Error del servidor' });
     }
 });
 
