@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // =================================================================================
-    // 2. REFERENCIAS AL DOM (ELEMENTOS HTML)
+    // 2. REFERENCIAS AL DOM
     // =================================================================================
     
     // Contenedores
@@ -116,6 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const filtrosAplicadosDiv = document.getElementById('filtros-aplicados');
     const menuContainer = document.getElementById('menu-container');
     const selectorCampos = document.getElementById('selector-campos');
+    const panelCruces = document.getElementById('panel-cruces');
 
     // Modales y Textos
     const infoModal = document.getElementById('info-modal');
@@ -126,104 +127,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const promptUsuario = document.getElementById('prompt-usuario');
 
     // Botones
-    // ... otras variables ...
-    const panelCruces = document.getElementById('panel-cruces'); // <--- AÑADIR ESTA LÍNEA
-    const cerrarCrucesBtn = document.getElementById('cerrar-cruces'); // <--- Y ESTA
-    const limpiarFiltrosPanelBtn = document.getElementById('limpiar-filtros-panel'); 
     const mostrarControlesBtn = document.getElementById('mostrar-controles');
     const mostrarCapitulosBtn = document.getElementById('mostrar-capitulos');
     const filtroTotalBtn = document.getElementById('filtro-total');
     const filtroAdultosBtn = document.getElementById('filtro-adultos');
     const filtroPediatricoBtn = document.getElementById('filtro-pediatrico');
-    const filtroSeguridadBtn = document.getElementById('filtro-seguridad'); // NUEVO BOTÓN
+    const filtroSeguridadBtn = document.getElementById('filtro-seguridad');
+    
     const limpiarFiltrosBtn = document.getElementById('limpiar-filtros');
+    const cerrarCrucesBtn = document.getElementById('cerrar-cruces');
+    const limpiarFiltrosPanelBtn = document.getElementById('limpiar-filtros-panel');
     const agregarFiltroBtn = document.getElementById('agregar-filtro');
     const aplicarFiltrosBtn = document.getElementById('aplicar-filtros');
+    
     const generarInformeBtn = document.getElementById('generar-informe-btn');
     const exportarInformeIaPdfBtn = document.getElementById('exportar-informe-ia-pdf-btn');
     const exportarVistaPdfBtn = document.getElementById('exportar-vista-pdf-btn');
     const imprimirBtn = document.getElementById('imprimir-btn');
     const iaBtn = document.getElementById('mostrar-ia-btn');
-    // --- NUEVA LÓGICA DE EXCEL ---
-
     const btnExportarCruce = document.getElementById('btn-exportar-cruce-excel');
-    if (btnExportarCruce) {
-        btnExportarCruce.addEventListener('click', exportarCruceAExcel);
-    }
-
-    function exportarCruceAExcel() {
-        // 1. Verificar si hay datos filtrados
-        if (!currentFilteredData || currentFilteredData.length === 0) {
-            Swal.fire('Atención', 'No hay datos filtrados para exportar. Aplica un cruce primero.', 'warning');
-            return;
-        }
-
-        // 2. Obtener qué filtros se usaron para saber qué columnas agregar
-        const filtrosActivos = getFiltersFromUI();
-        
-        // Si no hay filtros, preguntar si seguro quiere exportar todo
-        if (filtrosActivos.length === 0) {
-            const confirmar = confirm("No has seleccionado ningún cruce específico. ¿Quieres exportar la lista completa de la población seleccionada?");
-            if (!confirmar) return;
-        }
-
-        Swal.fire({
-            title: 'Generando Excel',
-            text: 'Preparando la lista nominal...',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
-        });
-
-        // 3. Definir Columnas FIJAS
-        // Nota: Asegúrate que estas claves existan en tu objeto de datos (revisa mayúsculas/minúsculas)
-        const columnasFijas = ['Efector', 'DNI', 'Apellido', 'Nombre', 'Sexo', 'Edad'];
-        
-        // 4. Definir Columnas DINÁMICAS (Las que usó en el filtro)
-        const columnasDinamicas = filtrosActivos.map(f => f.field);
-        
-        // Unimos sin repetir (Set) por si filtró por Edad (que ya está en fijas)
-        const columnasFinales = [...new Set([...columnasFijas, ...columnasDinamicas])];
-
-        // 5. Mapear los datos para el Excel
-        const datosParaExcel = currentFilteredData.map(row => {
-            const filaExcel = {};
-            columnasFinales.forEach(col => {
-                // Intentamos buscar la columna tal cual, o normalizada si hace falta
-                // Si la columna es "Apellido" y en el dato es "apellido", esto ayuda:
-                let valor = row[col];
-                
-                // Parche por si Apellido y Nombre vienen juntos en "Apellido y Nombre"
-                if ((col === 'Apellido' || col === 'Nombre') && !valor && row['Apellido y Nombre']) {
-                    const partes = row['Apellido y Nombre'].split(',');
-                    if (col === 'Apellido') valor = partes[0] ? partes[0].trim() : '';
-                    if (col === 'Nombre') valor = partes[1] ? partes[1].trim() : '';
-                }
-
-                filaExcel[col] = valor || '-'; // Guión si está vacío
-            });
-            return filaExcel;
-        });
-
-        // 6. Crear el título descriptivo
-        const descripcionFiltros = filtrosActivos.length > 0 
-            ? filtrosActivos.map(f => `${f.field} (${f.operator === 'range' ? f.value.desde + '-' + f.value.hasta : f.value})`).join(', ')
-            : 'Población Completa sin Filtros';
-
-        // 7. Generar el archivo con SheetJS
-        const worksheet = XLSX.utils.json_to_sheet(datosParaExcel);
-        
-        // (Opcional) Agregar el título en la celda A1 empujando todo hacia abajo
-        XLSX.utils.sheet_add_aoa(worksheet, [[`Reporte de Cruce: ${descripcionFiltros}`]], { origin: "A1" });
-        XLSX.utils.sheet_add_json(worksheet, datosParaExcel, { origin: "A2", skipHeader: false });
-
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Resultados Cruce");
-
-        // 8. Descargar
-        XLSX.writeFile(workbook, `Reporte_IAPOS_${new Date().getTime()}.xlsx`);
-        
-        Swal.close();
-    }
 
     // =================================================================================
     // 3. INICIALIZACIÓN Y EVENTOS
@@ -233,120 +155,104 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function initializeDashboard() {
         updateDate();
-        
-        // Carga inicial de datos (Simula click en Total al terminar)
         await fetchData('Total');
         
         // --- EVENTOS DE BOTONES DE POBLACIÓN ---
 
-        // 1. Total (Población General)
         if (filtroTotalBtn) {
             filtroTotalBtn.addEventListener('click', () => {
                 resetButtonStyles();
                 currentFilteredData = allData.filter(r => r.Poblacion === 'General');
                 currentFilterType = 'Total General';
                 updateDashboardMetrics(currentFilteredData);
-                
                 filtroTotalBtn.classList.remove('bg-gray-300', 'text-gray-800');
                 filtroTotalBtn.classList.add('bg-blue-600', 'text-white');
             });
         }
 
-        // 2. Adultos
         if (filtroAdultosBtn) {
             filtroAdultosBtn.addEventListener('click', () => {
                 resetButtonStyles();
                 currentFilteredData = allData.filter(r => r.Poblacion === 'General' && r.Edad >= 18);
                 currentFilterType = 'Población: Adultos';
                 updateDashboardMetrics(currentFilteredData);
-                
                 filtroAdultosBtn.classList.remove('bg-gray-300', 'text-gray-800');
                 filtroAdultosBtn.classList.add('bg-blue-600', 'text-white');
             });
         }
 
-        // 3. Pediátrico
         if (filtroPediatricoBtn) {
             filtroPediatricoBtn.addEventListener('click', () => {
                 resetButtonStyles();
                 currentFilteredData = allData.filter(r => r.Poblacion === 'General' && r.Edad < 18);
                 currentFilterType = 'Población: Pediátrico';
                 updateDashboardMetrics(currentFilteredData);
-                
                 filtroPediatricoBtn.classList.remove('bg-gray-300', 'text-gray-800');
                 filtroPediatricoBtn.classList.add('bg-blue-600', 'text-white');
             });
         }
-        // 4. SEGURIDAD (POBLACIÓN ESPECIAL)
+
         if (filtroSeguridadBtn) {
             filtroSeguridadBtn.addEventListener('click', () => {
-                resetButtonStyles(); // Pone todos en gris
-                
-                // Filtramos SOLO los datos de seguridad
+                resetButtonStyles();
                 currentFilteredData = allData.filter(r => r.Poblacion === 'Seguridad');
                 currentFilterType = 'Población: Seguridad';
                 updateDashboardMetrics(currentFilteredData);
                 
-                // Pintamos el botón de Seguridad de su color (Teal)
                 filtroSeguridadBtn.classList.remove('bg-gray-300', 'text-gray-800');
                 filtroSeguridadBtn.classList.add('bg-teal-600', 'text-white');
                 
-                // Feedback visual
                 Swal.fire({
-                    icon: 'success', // Cambié a success para que sea verde y bonito
-                    title: 'Área: Seguridad',
-                    text: `Datos cargados: ${currentFilteredData.length} registros.`,
-                    timer: 1500,
+                    icon: 'success',
+                    title: 'Población: Seguridad',
+                    text: `Visualizando ${currentFilteredData.length} registros del área de Seguridad.`,
+                    timer: 2000,
                     showConfirmButton: false
                 });
             });
         }
 
         // --- EVENTOS DE NAVEGACIÓN ---
-            // Dentro de initializeDashboard()...
-
-if (mostrarControlesBtn) {
-    mostrarControlesBtn.addEventListener('click', () => {
-        // Alternar visibilidad del panel de cruces
-        if (panelCruces.classList.contains('hidden')) {
-            panelCruces.classList.remove('hidden');
-            // Opcional: Ocultar capítulos o IA si quieres enfocar la atención
-            capitulosSalud.classList.add('hidden');
-            informeIaSection.classList.add('hidden');
-            dashboardGraficos.classList.remove('hidden'); // Mostrar gráficos para ver el efecto
-        } else {
-            panelCruces.classList.add('hidden');
+        
+        if (mostrarControlesBtn) {
+            mostrarControlesBtn.addEventListener('click', () => {
+                // El botón ahora alterna el PANEL DE CRUCES
+                if (panelCruces.classList.contains('hidden')) {
+                    panelCruces.classList.remove('hidden');
+                    capitulosSalud.classList.add('hidden');
+                    informeIaSection.classList.add('hidden');
+                    dashboardGraficos.classList.remove('hidden'); 
+                } else {
+                    panelCruces.classList.add('hidden');
+                }
+                toggleNavStyles(mostrarControlesBtn, mostrarCapitulosBtn);
+            });
         }
-    });
-}
-
-// Botón de cerrar dentro del panel (la X)
-if (cerrarCrucesBtn) {
-    cerrarCrucesBtn.addEventListener('click', () => {
-        panelCruces.classList.add('hidden');
-    });
-}
-
-// Botón de limpiar dentro del panel
-if (limpiarFiltrosPanelBtn) {
-    limpiarFiltrosPanelBtn.addEventListener('click', clearFilters);
-}
 
         if (mostrarCapitulosBtn) {
             mostrarCapitulosBtn.addEventListener('click', () => {
-                mostrarSeccion('capitulos');
+                controlesFiltros.classList.remove('hidden'); // Barra botones
+                capitulosSalud.classList.remove('hidden'); // Capítulos
+                panelCruces.classList.add('hidden'); // Ocultar cruces
+                dashboardGraficos.classList.add('hidden'); // Ocultar gráficos
+                informeIaSection.classList.add('hidden'); // Ocultar IA
+                
                 toggleNavStyles(mostrarCapitulosBtn, mostrarControlesBtn);
             });
         }
 
         if (iaBtn) {
             iaBtn.addEventListener('click', () => {
-                mostrarSeccion('ia');
+                capitulosSalud.classList.add('hidden');
+                panelCruces.classList.add('hidden');
+                dashboardGraficos.classList.add('hidden');
+                informeIaSection.classList.remove('hidden');
             });
         }
 
         // --- OTROS EVENTOS ---
-        if (limpiarFiltrosBtn) limpiarFiltrosBtn.addEventListener('click', clearFilters);
+        if (cerrarCrucesBtn) cerrarCrucesBtn.addEventListener('click', () => panelCruces.classList.add('hidden'));
+        if (limpiarFiltrosPanelBtn) limpiarFiltrosPanelBtn.addEventListener('click', clearFilters);
         if (agregarFiltroBtn) agregarFiltroBtn.addEventListener('click', createFilterUI);
         if (aplicarFiltrosBtn) aplicarFiltrosBtn.addEventListener('click', applyFiltersAndRenderDashboard);
         if (generarInformeBtn) generarInformeBtn.addEventListener('click', generateAIReport);
@@ -354,6 +260,7 @@ if (limpiarFiltrosPanelBtn) {
         if (exportarVistaPdfBtn) exportarVistaPdfBtn.addEventListener('click', exportarVistaAPDF);
         if (imprimirBtn) imprimirBtn.addEventListener('click', () => window.print());
         if (cerrarModalBtn) cerrarModalBtn.addEventListener('click', () => infoModal.classList.add('hidden'));
+        if (btnExportarCruce) btnExportarCruce.addEventListener('click', exportarCruceAExcel);
 
         // Modales de indicadores
         document.querySelectorAll('.indicador').forEach(indicador => {
@@ -367,27 +274,53 @@ if (limpiarFiltrosPanelBtn) {
             });
         });
         
-        // Simular click en total al inicio para ver datos
+        // Simular click en total al inicio
         if (filtroTotalBtn) filtroTotalBtn.click();
     }
 
     // =================================================================================
-    // 4. FUNCIONES PRINCIPALES
+    // 4. FUNCIONES PRINCIPALES (CON DEDUPLICACIÓN)
     // =================================================================================
 
     async function fetchData(tipoInicial) {
         try {
-            // Pedimos TODO al servidor (General + Seguridad)
             const [dataResponse, indicadoresResponse, camposResponse] = await Promise.all([
-                fetch('/obtener-datos-completos'), // Esta ruta ya devuelve todo unido
-                fetch('/obtener-indicadores-fijos'), // Indicadores base (opcional si calculamos en front)
+                fetch('/obtener-datos-completos'),
+                fetch('/obtener-indicadores-fijos'), 
                 fetch('/obtener-campos')
             ]);
 
             const rawData = await dataResponse.json();
             
-            // Procesamos edades una sola vez
-            allData = rawData.map(row => {
+            // --- NUEVO BLOQUE: DEDUPLICACIÓN DE DATOS POR DNI ---
+            // Usamos un Map para quedarnos con una sola copia de cada DNI.
+            // Si un DNI aparece dos veces, nos quedamos con el primero que encuentre (o el último).
+            const uniqueMap = new Map();
+            
+            rawData.forEach(item => {
+                // Nos aseguramos de que el DNI exista y sea tratado como string para evitar errores
+                const dni = item['DNI'] ? String(item['DNI']).trim() : null;
+                
+                if (dni) {
+                    // Si el DNI no está en el mapa, lo agregamos.
+                    // Si ya está, lo ignoramos (esto elimina el duplicado)
+                    if (!uniqueMap.has(dni)) {
+                        uniqueMap.set(dni, item);
+                    }
+                } else {
+                    // Si no tiene DNI, lo guardamos igual (aunque es raro) usando un índice único
+                    // Opcional: uniqueMap.set('no-dni-' + Math.random(), item);
+                }
+            });
+
+            // Convertimos el mapa de vuelta a un array limpio
+            const uniqueData = Array.from(uniqueMap.values());
+            console.log(`🧹 Limpieza de duplicados: ${rawData.length} filas originales -> ${uniqueData.length} pacientes únicos.`);
+
+            // ----------------------------------------------------
+
+            // Procesamos edades una sola vez sobre los datos únicos
+            allData = uniqueData.map(row => {
                 row.Edad = parseEdad(row.Edad);
                 return row;
             });
@@ -395,7 +328,6 @@ if (limpiarFiltrosPanelBtn) {
             fixedIndicators = await indicadoresResponse.json();
             const campos = await camposResponse.json();
 
-            // Llenar selector de campos
             if (selectorCampos) {
                 selectorCampos.innerHTML = '';
                 campos.forEach(campo => {
@@ -415,30 +347,31 @@ if (limpiarFiltrosPanelBtn) {
     }
 
     function updateDashboardMetrics(filteredData) {
-        // Si no hay datos, ponemos todo en cero
+        dashboardData = filteredData; 
+
         if (!filteredData || filteredData.length === 0) {
             document.getElementById('total-casos').textContent = 0;
             document.getElementById('total-mujeres').textContent = '0 (0.0%)';
             document.getElementById('total-varones').textContent = '0 (0.0%)';
             document.getElementById('total-cronicas').textContent = 0;
             document.getElementById('total-alto-riesgo').textContent = 0;
-            
-            // Limpiamos gráficos
             Object.values(chartInstances).forEach(chart => chart.destroy());
-            menuContainer.innerHTML = '<p class="text-center text-gray-500 py-4">No hay datos para mostrar en esta selección.</p>';
+            if(menuContainer) menuContainer.innerHTML = '<p class="text-center text-gray-500 py-4">No hay datos para mostrar en esta selección.</p>';
             return;
         }
 
         const totalCasos = filteredData.length;
+        
+        // --- CORRECCIÓN: Aceptar F/M y Femenino/Masculino ---
         const totalMujeres = filteredData.filter(d => {
-        const sexo = normalizeString(d['Sexo']);
-        return sexo === 'femenino' || sexo === 'f';
-    }).length;
-
-    const totalVarones = filteredData.filter(d => {
-        const sexo = normalizeString(d['Sexo']);
-        return sexo === 'masculino' || sexo === 'm';
-    }).length;
+            const s = normalizeString(d['Sexo']);
+            return s === 'femenino' || s === 'f';
+        }).length;
+        
+        const totalVarones = filteredData.filter(d => {
+            const s = normalizeString(d['Sexo']);
+            return s === 'masculino' || s === 'm';
+        }).length;
 
         const totalEnfCronicas = filteredData.filter(d =>
             normalizeString(d['Diabetes']) === 'presenta' ||
@@ -457,56 +390,26 @@ if (limpiarFiltrosPanelBtn) {
             );
         }).length;
 
-        // Actualizar UI
         document.getElementById('total-casos').textContent = totalCasos;
         document.getElementById('total-mujeres').textContent = `${totalMujeres} (${((totalMujeres / totalCasos) * 100).toFixed(1)}%)`;
         document.getElementById('total-varones').textContent = `${totalVarones} (${((totalVarones / totalCasos) * 100).toFixed(1)}%)`;
         document.getElementById('total-cronicas').textContent = totalEnfCronicas;
         document.getElementById('total-alto-riesgo').textContent = totalAltoRiesgo;
 
-        // Renderizar gráficos y menú
         buildDashboard(filteredData);
         buildHealthChaptersMenu(filteredData);
     }
 
     // =================================================================================
-    // 5. FUNCIONES DE AYUDA (Helpers)
+    // 5. FUNCIONES DE AYUDA
     // =================================================================================
 
-    function mostrarSeccion(seccion) {
-        // Ocultar todo primero
-        controlesFiltros.classList.add('hidden');
-        capitulosSalud.classList.add('hidden');
-        dashboardGraficos.classList.add('hidden');
-        informeIaSection.classList.add('hidden');
-        if(limpiarFiltrosBtn) limpiarFiltrosBtn.classList.add('hidden');
-
-        // Mostrar lo deseado
-        if (seccion === 'controles') {
-            controlesFiltros.classList.remove('hidden');
-            dashboardGraficos.classList.remove('hidden');
-            if(limpiarFiltrosBtn) limpiarFiltrosBtn.classList.remove('hidden');
-        } else if (seccion === 'capitulos') {
-            capitulosSalud.classList.remove('hidden');
-            if(limpiarFiltrosBtn) limpiarFiltrosBtn.classList.remove('hidden');
-        } else if (seccion === 'ia') {
-            informeIaSection.classList.remove('hidden');
-        }
-    }
     function resetButtonStyles() {
-        // Ahora incluimos filtroSeguridadBtn en la lista para limpiarlo también
         const buttons = [filtroTotalBtn, filtroAdultosBtn, filtroPediatricoBtn, filtroSeguridadBtn];
-        
         buttons.forEach(btn => {
             if (btn) {
-                // Quitamos estilos de "activo" (azules o teal)
-                btn.classList.remove('bg-blue-600', 'bg-teal-600', 'text-white', 'shadow-inner');
-                // Ponemos estilos de "inactivo" (gris)
+                btn.classList.remove('bg-blue-600', 'bg-teal-600', 'text-white');
                 btn.classList.add('bg-gray-300', 'text-gray-800');
-                
-                // Caso especial: El botón de seguridad tiene un color distinto al activarse, 
-                // así que nos aseguramos de restaurar su clase base hover si es necesario,
-                // pero por simplicidad, lo dejaremos gris como los demás cuando no esté activo.
             }
         });
     }
@@ -546,7 +449,7 @@ if (limpiarFiltrosPanelBtn) {
     }
 
     function renderFixedIndicators(data) {
-        // Opcional: Si quieres usar los datos pre-calculados del servidor
+        // Opcional
     }
 
     function clearFilters() {
@@ -555,7 +458,174 @@ if (limpiarFiltrosPanelBtn) {
     }
 
     // =================================================================================
-    // 6. GRÁFICOS Y MENÚS
+    // 6. FILTROS AVANZADOS Y EXPORTACIÓN EXCEL
+    // =================================================================================
+
+    function createFilterUI() {
+        if(!selectorCampos) return;
+        const camposSeleccionados = Array.from(selectorCampos.selectedOptions).map(option => option.value);
+        camposSeleccionados.forEach(campo => {
+            if (document.getElementById(`filtro-${campo}`)) return;
+            
+            const filtroDiv = document.createElement('div');
+            filtroDiv.id = `filtro-${campo}`;
+            filtroDiv.classList.add('filtro', 'mb-4', 'p-3', 'bg-gray-200', 'rounded-md');
+            
+            const labelCampo = document.createElement('label');
+            labelCampo.textContent = `${campo}:`;
+            labelCampo.classList.add('block', 'text-gray-700', 'text-sm', 'font-bold', 'mb-2');
+            filtroDiv.appendChild(labelCampo);
+            
+            if (campo === 'Edad') {
+                const divRango = document.createElement('div');
+                divRango.classList.add('flex', 'space-x-2', 'mb-2');
+                const inputDesde = document.createElement('input');
+                inputDesde.type = 'number'; inputDesde.id = `edad-desde`; inputDesde.placeholder = 'Desde';
+                inputDesde.classList.add('shadow', 'appearance-none', 'border', 'rounded', 'w-full', 'py-2', 'px-3', 'text-gray-700');
+                const inputHasta = document.createElement('input');
+                inputHasta.type = 'number'; inputHasta.id = `edad-hasta`; inputHasta.placeholder = 'Hasta';
+                inputHasta.classList.add('shadow', 'appearance-none', 'border', 'rounded', 'w-full', 'py-2', 'px-3', 'text-gray-700');
+                divRango.appendChild(inputDesde);
+                divRango.appendChild(inputHasta);
+                filtroDiv.appendChild(divRango);
+            } else {
+                const uniqueOptions = [...new Set(allData.map(row => row[campo]).filter(val => val && val.trim() !== ''))];
+                uniqueOptions.forEach(opcion => {
+                    const checkboxDiv = document.createElement('div');
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.id = `opcion-${campo}-${opcion.replace(/\s+/g, '-')}`;
+                    checkbox.value = opcion;
+                    const labelOpcion = document.createElement('label');
+                    labelOpcion.textContent = opcion;
+                    labelOpcion.setAttribute('for', checkbox.id);
+                    labelOpcion.classList.add('ml-2', 'text-gray-700', 'text-sm');
+                    checkboxDiv.appendChild(checkbox);
+                    checkboxDiv.appendChild(labelOpcion);
+                    filtroDiv.appendChild(checkboxDiv);
+                });
+            }
+            filtrosAplicadosDiv.appendChild(filtroDiv);
+        });
+    }
+
+    function getFiltersFromUI() {
+        const filters = [];
+        const filterDivs = document.querySelectorAll('#filtros-aplicados > .filtro');
+        filterDivs.forEach(filterDiv => {
+            const field = filterDiv.id.replace('filtro-', '');
+            if (field === 'Edad') {
+                const desde = parseFloat(document.getElementById('edad-desde').value);
+                const hasta = parseFloat(document.getElementById('edad-hasta').value);
+                if (!isNaN(desde) && !isNaN(hasta)) {
+                    filters.push({ field, operator: 'range', value: { desde, hasta } });
+                }
+            } else {
+                const checkboxes = filterDiv.querySelectorAll('input[type="checkbox"]:checked');
+                if (checkboxes.length > 0) {
+                    const values = Array.from(checkboxes).map(cb => cb.value);
+                    filters.push({ field, operator: 'in', value: values });
+                }
+            }
+        });
+        return filters;
+    }
+
+    function applyFiltersAndRenderDashboard() {
+        const filters = getFiltersFromUI();
+        const filteredData = allData.filter(row => {
+            return filters.every(filter => {
+                if (filter.field === 'Edad') {
+                    return row.Edad >= filter.value.desde && row.Edad <= filter.value.hasta;
+                }
+                if (filter.operator === 'in') {
+                    return filter.value.includes(row[filter.field]);
+                }
+                return false;
+            });
+        });
+        
+        // --- GUARDAMOS EL RESULTADO PARA QUE EL EXCEL LO USE ---
+        currentFilteredData = filteredData; 
+        updateDashboardMetrics(filteredData);
+        
+        Swal.fire({
+            position: 'top-end',
+            icon: 'success',
+            title: 'Cruce aplicado',
+            text: `${filteredData.length} registros encontrados.`,
+            showConfirmButton: false,
+            timer: 1500
+        });
+    }
+
+    function exportarCruceAExcel() {
+        if (!currentFilteredData || currentFilteredData.length === 0) {
+            Swal.fire('Atención', 'No hay datos filtrados para exportar.', 'warning');
+            return;
+        }
+
+        const filtrosActivos = getFiltersFromUI();
+        if (filtrosActivos.length === 0) {
+            if(!confirm("No hay filtros seleccionados. ¿Exportar lista completa?")) return;
+        }
+
+        Swal.fire({
+            title: 'Generando Excel',
+            text: 'Preparando lista nominal...',
+            didOpen: () => Swal.showLoading()
+        });
+
+        // Columnas Fijas
+        const columnasFijas = ['Efector', 'DNI', 'Apellido', 'Nombre', 'Sexo', 'Edad'];
+        const columnasDinamicas = filtrosActivos.map(f => f.field);
+        const columnasFinales = [...new Set([...columnasFijas, ...columnasDinamicas])];
+
+        const datosParaExcel = currentFilteredData.map(row => {
+            const filaExcel = {};
+            
+            // BUSCADOR INTELIGENTE DE NOMBRE
+            const combinadaKey = Object.keys(row).find(k => k.toLowerCase() === 'apellido y nombre');
+            const valorCombinado = combinadaKey ? row[combinadaKey] : '';
+
+            columnasFinales.forEach(col => {
+                let valor = row[col];
+
+                if ((col === 'Apellido' || col === 'Nombre') && !valor && valorCombinado) {
+                    if (valorCombinado.includes(',')) {
+                        const partes = valorCombinado.split(',');
+                        if (col === 'Apellido') valor = partes[0].trim();
+                        if (col === 'Nombre') valor = partes[1] ? partes[1].trim() : '';
+                    } else {
+                        if (col === 'Apellido') valor = valorCombinado;
+                        if (col === 'Nombre') valor = ''; 
+                    }
+                }
+                filaExcel[col] = valor || '-';
+            });
+            return filaExcel;
+        });
+
+        // GENERACIÓN LIMPIA (Sin doble encabezado)
+        const descripcionFiltros = filtrosActivos.length > 0 
+            ? filtrosActivos.map(f => `${f.field}`).join(', ')
+            : 'Completo';
+
+        const worksheet = XLSX.utils.aoa_to_sheet([
+            [`Reporte: ${descripcionFiltros}`] 
+        ]);
+
+        XLSX.utils.sheet_add_json(worksheet, datosParaExcel, { origin: "A2" });
+
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Datos");
+        XLSX.writeFile(workbook, `Reporte_PPDT_${new Date().getTime()}.xlsx`);
+        
+        Swal.close();
+    }
+
+    // =================================================================================
+    // 7. GRÁFICOS (Chart.js)
     // =================================================================================
 
     function buildDashboard(data) {
@@ -727,117 +797,6 @@ if (limpiarFiltrosPanelBtn) {
     }
 
     // =================================================================================
-    // 7. FILTROS AVANZADOS (UI)
-    // =================================================================================
-
-    function createFilterUI() {
-        if(!selectorCampos) return;
-        const camposSeleccionados = Array.from(selectorCampos.selectedOptions).map(option => option.value);
-        camposSeleccionados.forEach(campo => {
-            if (document.getElementById(`filtro-${campo}`)) return;
-            
-            const filtroDiv = document.createElement('div');
-            filtroDiv.id = `filtro-${campo}`;
-            filtroDiv.classList.add('filtro', 'mb-4', 'p-3', 'bg-gray-200', 'rounded-md');
-            
-            const labelCampo = document.createElement('label');
-            labelCampo.textContent = `${campo}:`;
-            labelCampo.classList.add('block', 'text-gray-700', 'text-sm', 'font-bold', 'mb-2');
-            filtroDiv.appendChild(labelCampo);
-            
-            if (campo === 'Edad') {
-                const divRango = document.createElement('div');
-                divRango.classList.add('flex', 'space-x-2', 'mb-2');
-                const inputDesde = document.createElement('input');
-                inputDesde.type = 'number'; inputDesde.id = `edad-desde`; inputDesde.placeholder = 'Desde';
-                inputDesde.classList.add('shadow', 'appearance-none', 'border', 'rounded', 'w-full', 'py-2', 'px-3', 'text-gray-700');
-                const inputHasta = document.createElement('input');
-                inputHasta.type = 'number'; inputHasta.id = `edad-hasta`; inputHasta.placeholder = 'Hasta';
-                inputHasta.classList.add('shadow', 'appearance-none', 'border', 'rounded', 'w-full', 'py-2', 'px-3', 'text-gray-700');
-                divRango.appendChild(inputDesde);
-                divRango.appendChild(inputHasta);
-                filtroDiv.appendChild(divRango);
-            } else {
-                const uniqueOptions = [...new Set(allData.map(row => row[campo]).filter(val => val && val.trim() !== ''))];
-                uniqueOptions.forEach(opcion => {
-                    const checkboxDiv = document.createElement('div');
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
-                    checkbox.id = `opcion-${campo}-${opcion.replace(/\s+/g, '-')}`;
-                    checkbox.value = opcion;
-                    const labelOpcion = document.createElement('label');
-                    labelOpcion.textContent = opcion;
-                    labelOpcion.setAttribute('for', checkbox.id);
-                    labelOpcion.classList.add('ml-2', 'text-gray-700', 'text-sm');
-                    checkboxDiv.appendChild(checkbox);
-                    checkboxDiv.appendChild(labelOpcion);
-                    filtroDiv.appendChild(checkboxDiv);
-                });
-            }
-            filtrosAplicadosDiv.appendChild(filtroDiv);
-        });
-    }
-    function applyFiltersAndRenderDashboard() {
-        const filters = getFiltersFromUI();
-        
-        // 1. Calculamos el cruce (Esto ya lo hacía)
-        const filteredData = allData.filter(row => {
-            return filters.every(filter => {
-                if (filter.field === 'Edad') {
-                    // Aseguramos que sea número para comparar
-                    const edadDato = parseFloat(row.Edad);
-                    return !isNaN(edadDato) && edadDato >= filter.value.desde && edadDato <= filter.value.hasta;
-                }
-                if (filter.operator === 'in') {
-                    // Normalizamos un poco para evitar errores de mayúsculas/minúsculas si hace falta
-                    // pero mantenemos la lógica estricta del checkbox seleccionado
-                    return filter.value.includes(row[filter.field]);
-                }
-                return false;
-            });
-        });
-
-        // 2. ¡ESTA ES LA LÍNEA QUE FALTABA! 
-        // Actualizamos la variable global para que el botón de Excel sepa qué exportar
-        currentFilteredData = filteredData; 
-
-        // 3. Actualizamos la pantalla (Gráficos y Números)
-        updateDashboardMetrics(filteredData);
-
-        // 4. Feedback visual para confirmar que se aplicó
-        Swal.fire({
-            position: 'top-end',
-            icon: 'success',
-            title: `Cruce aplicado`,
-            text: `Se encontraron ${filteredData.length} casos coincidentes`,
-            showConfirmButton: false,
-            timer: 1500
-        });
-    }
-    
-    function getFiltersFromUI() {
-        const filters = [];
-        const filterDivs = document.querySelectorAll('#filtros-aplicados > .filtro');
-        filterDivs.forEach(filterDiv => {
-            const field = filterDiv.id.replace('filtro-', '');
-            if (field === 'Edad') {
-                const desde = parseFloat(document.getElementById('edad-desde').value);
-                const hasta = parseFloat(document.getElementById('edad-hasta').value);
-                if (!isNaN(desde) && !isNaN(hasta)) {
-                    filters.push({ field, operator: 'range', value: { desde, hasta } });
-                }
-            } else {
-                const checkboxes = filterDiv.querySelectorAll('input[type="checkbox"]:checked');
-                if (checkboxes.length > 0) {
-                    const values = Array.from(checkboxes).map(cb => cb.value);
-                    filters.push({ field, operator: 'in', value: values });
-                }
-            }
-        });
-        return filters;
-    }
-
-    // =================================================================================
     // 8. IA Y EXPORTACIÓN PDF
     // =================================================================================
 
@@ -849,7 +808,6 @@ if (limpiarFiltrosPanelBtn) {
         contenedorInforme.innerHTML = `<p class="text-gray-500">Generando informe, por favor espere...</p>`;
         
         try {
-            // Usamos los datos actualmente filtrados para el informe
             const response = await fetch('/generar-informe', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
