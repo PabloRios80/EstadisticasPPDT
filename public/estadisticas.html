@@ -10,6 +10,7 @@
     
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 
     <style>
         .category-container-shadow-red {
@@ -64,7 +65,6 @@
             <button id="mostrar-ia-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-full shadow-md transform hover:scale-105 transition-transform">✨ Informe con IA</button>
             <button id="mostrar-capitulos" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-full shadow-md hover:bg-blue-700">Capítulos de Salud</button>
             <button id="mostrar-controles" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-full shadow-md">Mostrar Cruces</button>
-            <button id="exportar-excel-btn" class="bg-green-700 hover:bg-green-800 text-white font-bold py-2 px-4 rounded-full shadow-md">📄 Exportar Excel</button>
             <button id="exportar-vista-pdf-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full shadow-md">🖨️ PDF Vista</button>
             <button id="limpiar-filtros" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-full hidden">Limpiar Filtros</button>
         </div>
@@ -94,16 +94,21 @@
                 </div>
             </div>
         </div>
+        <div class="flex flex-wrap justify-end space-x-4 border-t pt-4 mt-4">
+            <button id="limpiar-filtros-panel" class="text-gray-600 hover:text-red-600 font-semibold px-4 py-2">
+                Limpiar Todo
+            </button>
+            
+            <button id="btn-exportar-cruce-excel" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-full shadow-md flex items-center transform hover:scale-105 transition-all">
+                <i class="fas fa-file-excel mr-2"></i> Exportar Lista
+            </button>
 
-        <div class="flex justify-end space-x-4 border-t pt-4">
-            <button id="limpiar-filtros-panel" class="text-gray-600 hover:text-red-600 font-semibold px-4 py-2">Limpiar Todo</button>
             <button id="aplicar-filtros" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full shadow-md transform hover:scale-105 transition-all">
                 🚀 Aplicar Cruce
             </button>
         </div>
     </div>
 </div>
-
     <div class="container mx-auto p-8 relative z-0"> <div id="indicadores-principales" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
         
             <div id="indicador-casos" class="indicador bg-white p-3 rounded-lg shadow-md text-center flex flex-col justify-center cursor-pointer">

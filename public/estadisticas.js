@@ -144,6 +144,86 @@ document.addEventListener('DOMContentLoaded', () => {
     const exportarVistaPdfBtn = document.getElementById('exportar-vista-pdf-btn');
     const imprimirBtn = document.getElementById('imprimir-btn');
     const iaBtn = document.getElementById('mostrar-ia-btn');
+    // --- NUEVA LÓGICA DE EXCEL ---
+
+    const btnExportarCruce = document.getElementById('btn-exportar-cruce-excel');
+    if (btnExportarCruce) {
+        btnExportarCruce.addEventListener('click', exportarCruceAExcel);
+    }
+
+    function exportarCruceAExcel() {
+        // 1. Verificar si hay datos filtrados
+        if (!currentFilteredData || currentFilteredData.length === 0) {
+            Swal.fire('Atención', 'No hay datos filtrados para exportar. Aplica un cruce primero.', 'warning');
+            return;
+        }
+
+        // 2. Obtener qué filtros se usaron para saber qué columnas agregar
+        const filtrosActivos = getFiltersFromUI();
+        
+        // Si no hay filtros, preguntar si seguro quiere exportar todo
+        if (filtrosActivos.length === 0) {
+            const confirmar = confirm("No has seleccionado ningún cruce específico. ¿Quieres exportar la lista completa de la población seleccionada?");
+            if (!confirmar) return;
+        }
+
+        Swal.fire({
+            title: 'Generando Excel',
+            text: 'Preparando la lista nominal...',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        // 3. Definir Columnas FIJAS
+        // Nota: Asegúrate que estas claves existan en tu objeto de datos (revisa mayúsculas/minúsculas)
+        const columnasFijas = ['Efector', 'DNI', 'Apellido', 'Nombre', 'Sexo', 'Edad'];
+        
+        // 4. Definir Columnas DINÁMICAS (Las que usó en el filtro)
+        const columnasDinamicas = filtrosActivos.map(f => f.field);
+        
+        // Unimos sin repetir (Set) por si filtró por Edad (que ya está en fijas)
+        const columnasFinales = [...new Set([...columnasFijas, ...columnasDinamicas])];
+
+        // 5. Mapear los datos para el Excel
+        const datosParaExcel = currentFilteredData.map(row => {
+            const filaExcel = {};
+            columnasFinales.forEach(col => {
+                // Intentamos buscar la columna tal cual, o normalizada si hace falta
+                // Si la columna es "Apellido" y en el dato es "apellido", esto ayuda:
+                let valor = row[col];
+                
+                // Parche por si Apellido y Nombre vienen juntos en "Apellido y Nombre"
+                if ((col === 'Apellido' || col === 'Nombre') && !valor && row['Apellido y Nombre']) {
+                    const partes = row['Apellido y Nombre'].split(',');
+                    if (col === 'Apellido') valor = partes[0] ? partes[0].trim() : '';
+                    if (col === 'Nombre') valor = partes[1] ? partes[1].trim() : '';
+                }
+
+                filaExcel[col] = valor || '-'; // Guión si está vacío
+            });
+            return filaExcel;
+        });
+
+        // 6. Crear el título descriptivo
+        const descripcionFiltros = filtrosActivos.length > 0 
+            ? filtrosActivos.map(f => `${f.field} (${f.operator === 'range' ? f.value.desde + '-' + f.value.hasta : f.value})`).join(', ')
+            : 'Población Completa sin Filtros';
+
+        // 7. Generar el archivo con SheetJS
+        const worksheet = XLSX.utils.json_to_sheet(datosParaExcel);
+        
+        // (Opcional) Agregar el título en la celda A1 empujando todo hacia abajo
+        XLSX.utils.sheet_add_aoa(worksheet, [[`Reporte de Cruce: ${descripcionFiltros}`]], { origin: "A1" });
+        XLSX.utils.sheet_add_json(worksheet, datosParaExcel, { origin: "A2", skipHeader: false });
+
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Resultados Cruce");
+
+        // 8. Descargar
+        XLSX.writeFile(workbook, `Reporte_IAPOS_${new Date().getTime()}.xlsx`);
+        
+        Swal.close();
+    }
 
     // =================================================================================
     // 3. INICIALIZACIÓN Y EVENTOS
@@ -697,21 +777,42 @@ if (limpiarFiltrosPanelBtn) {
             filtrosAplicadosDiv.appendChild(filtroDiv);
         });
     }
-
     function applyFiltersAndRenderDashboard() {
         const filters = getFiltersFromUI();
+        
+        // 1. Calculamos el cruce (Esto ya lo hacía)
         const filteredData = allData.filter(row => {
             return filters.every(filter => {
                 if (filter.field === 'Edad') {
-                    return row.Edad >= filter.value.desde && row.Edad <= filter.value.hasta;
+                    // Aseguramos que sea número para comparar
+                    const edadDato = parseFloat(row.Edad);
+                    return !isNaN(edadDato) && edadDato >= filter.value.desde && edadDato <= filter.value.hasta;
                 }
                 if (filter.operator === 'in') {
+                    // Normalizamos un poco para evitar errores de mayúsculas/minúsculas si hace falta
+                    // pero mantenemos la lógica estricta del checkbox seleccionado
                     return filter.value.includes(row[filter.field]);
                 }
                 return false;
             });
         });
+
+        // 2. ¡ESTA ES LA LÍNEA QUE FALTABA! 
+        // Actualizamos la variable global para que el botón de Excel sepa qué exportar
+        currentFilteredData = filteredData; 
+
+        // 3. Actualizamos la pantalla (Gráficos y Números)
         updateDashboardMetrics(filteredData);
+
+        // 4. Feedback visual para confirmar que se aplicó
+        Swal.fire({
+            position: 'top-end',
+            icon: 'success',
+            title: `Cruce aplicado`,
+            text: `Se encontraron ${filteredData.length} casos coincidentes`,
+            showConfirmButton: false,
+            timer: 1500
+        });
     }
     
     function getFiltersFromUI() {
