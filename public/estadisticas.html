@@ -10,150 +10,111 @@
     
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 
     <style>
-        .category-container-shadow-red {
-            border-left: 8px solid #EF4444; /* Rojo */
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-        .category-container-shadow-purple {
-            border-left: 8px solid #A855F7; /* Púrpura */
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-        .category-container-shadow-green {
-            border-left: 8px solid #10B981; /* Verde */
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-        .category-container-shadow-teal {
-            border-left: 8px solid #14B8A6; /* Teal */
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
+        .category-container-shadow-red { border-left: 8px solid #EF4444; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .category-container-shadow-purple { border-left: 8px solid #A855F7; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .category-container-shadow-green { border-left: 8px solid #10B981; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .category-container-shadow-teal { border-left: 8px solid #14B8A6; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .tab-btn.active { background-color: #2563EB; color: white; }
     </style>
 </head>
 <body class="bg-gray-50 font-sans">
     
     <header class="bg-blue-600 text-white shadow-lg relative mb-8">
         <div class="container mx-auto px-4 py-4">
-            <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-                <div class="flex items-center space-x-4">
-                    <div class="bg-blue-500 rounded-full p-2">
-                        <img src="logo_iapos.png" alt="Logo IAPOS" class="h-20">
-                    </div>
-                    <h1 class="text-3xl font-bold">Día Preventivo</h1>
+            <div class="flex items-center space-x-4">
+                <div class="bg-blue-500 rounded-full p-2">
+                    <img src="logo_iapos.png" alt="Logo IAPOS" class="h-20">
                 </div>
+                <h1 class="text-3xl font-bold">Día Preventivo</h1>
             </div>
         </div>
         <div class="absolute top-4 right-4 bg-white text-gray-800 text-sm font-semibold py-2 px-4 rounded-full shadow-md">
             <span id="fecha-actualizacion"></span>
         </div>
     </header>
-<div id="controles-filtros" class="mb-8">
-    <div class="flex flex-col items-center space-y-4">
-        
-        <div class="flex flex-wrap justify-center gap-2 bg-gray-200 p-2 rounded-full shadow-inner">
-            <button id="filtro-total" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-full focus:outline-none transition-all duration-200 shadow-sm">Total</button>
-            <button id="filtro-adultos" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-full focus:outline-none transition-all duration-200">Adultos</button>
-            <button id="filtro-pediatrico" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-full focus:outline-none transition-all duration-200">Pediátrico</button>
+
+    <div id="controles-filtros" class="mb-8">
+        <div class="flex flex-col items-center space-y-4">
             
-            <button id="filtro-seguridad" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-6 rounded-full focus:outline-none transition-all duration-200 flex items-center shadow-sm">
-                <i class="fas fa-user-shield mr-2"></i> Seguridad
-            </button>
-        </div>
-
-        <div class="flex flex-wrap justify-center gap-3">
-            <button id="mostrar-ia-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-full shadow-md transform hover:scale-105 transition-transform">✨ Informe con IA</button>
-            <button id="mostrar-capitulos" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-full shadow-md hover:bg-blue-700">Capítulos de Salud</button>
-            <button id="mostrar-controles" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-full shadow-md">Mostrar Cruces</button>
-            <button id="exportar-vista-pdf-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full shadow-md">🖨️ PDF Vista</button>
-            <button id="limpiar-filtros" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-full hidden">Limpiar Filtros</button>
-        </div>
-    </div>
-</div>
-
-<div id="panel-cruces" class="container mx-auto px-4 mb-8 hidden">
-    <div class="bg-white p-6 rounded-lg shadow-lg border-t-4 border-blue-600">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold text-gray-800">🔍 Cruces de Variables y Filtros Avanzados</h2>
-            <button id="cerrar-cruces" class="text-gray-500 hover:text-red-500 font-bold">✖</button>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <div>
-                <label for="selector-campos" class="block text-gray-700 text-sm font-bold mb-2">Seleccionar Variable:</label>
-                <div class="flex space-x-2">
-                    <select id="selector-campos" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-gray-50"></select>
-                    <button id="agregar-filtro" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none shadow-md">+</button>
-                </div>
+            <div class="flex flex-wrap justify-center gap-2 bg-gray-200 p-2 rounded-full shadow-inner">
+                <button id="filtro-total" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-full focus:outline-none transition-all duration-200 shadow-sm">Total</button>
+                <button id="filtro-adultos" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-full focus:outline-none transition-all duration-200">Adultos</button>
+                <button id="filtro-pediatrico" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded-full focus:outline-none transition-all duration-200">Pediátrico</button>
+                <button id="filtro-seguridad" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-6 rounded-full focus:outline-none transition-all duration-200 flex items-center shadow-sm">
+                    <i class="fas fa-user-shield mr-2"></i> Seguridad
+                </button>
             </div>
 
-            <div class="md:col-span-2">
-                <h3 class="text-sm font-semibold text-gray-600 mb-2">Filtros Activos:</h3>
-                <div id="filtros-aplicados" class="bg-gray-100 p-4 rounded-md min-h-[50px] border border-gray-200">
-                    <p class="text-gray-400 text-xs italic">No hay filtros seleccionados.</p>
-                </div>
+            <div class="flex flex-wrap justify-center gap-3">
+                <button id="mostrar-ia-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-full shadow-md transform hover:scale-105 transition-transform">✨ Informe con IA</button>
+                <button id="mostrar-capitulos" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-full shadow-md hover:bg-blue-700">Capítulos de Salud</button>
+                <button id="mostrar-controles" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-full shadow-md">Mostrar Cruces</button>
+                <button id="exportar-vista-pdf-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full shadow-md">🖨️ PDF Vista</button>
+                <button id="limpiar-filtros" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-full hidden">Limpiar Filtros</button>
             </div>
         </div>
-        <div class="flex flex-wrap justify-end space-x-4 border-t pt-4 mt-4">
-            <button id="limpiar-filtros-panel" class="text-gray-600 hover:text-red-600 font-semibold px-4 py-2">
-                Limpiar Todo
-            </button>
-            
-            <button id="btn-exportar-cruce-excel" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-full shadow-md flex items-center transform hover:scale-105 transition-all">
-                <i class="fas fa-file-excel mr-2"></i> Exportar Lista
-            </button>
+    </div>
 
-            <button id="aplicar-filtros" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full shadow-md transform hover:scale-105 transition-all">
-                🚀 Aplicar Cruce
-            </button>
+    <div id="panel-cruces" class="container mx-auto px-4 mb-8 hidden">
+        <div class="bg-white p-6 rounded-lg shadow-lg border-t-4 border-blue-600">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">🔍 Cruces de Variables</h2>
+                <button id="cerrar-cruces" class="text-gray-500 hover:text-red-500 font-bold">✖</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div>
+                    <label for="selector-campos" class="block text-gray-700 text-sm font-bold mb-2">Seleccionar Variable:</label>
+                    <div class="flex space-x-2">
+                        <select id="selector-campos" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-gray-50"></select>
+                        <button id="agregar-filtro" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none shadow-md">+</button>
+                    </div>
+                </div>
+                <div class="md:col-span-2">
+                    <h3 class="text-sm font-semibold text-gray-600 mb-2">Filtros Activos:</h3>
+                    <div id="filtros-aplicados" class="bg-gray-100 p-4 rounded-md min-h-[50px] border border-gray-200"></div>
+                </div>
+            </div>
+            <div class="flex flex-wrap justify-end space-x-4 border-t pt-4 mt-4">
+                <button id="limpiar-filtros-panel" class="text-gray-600 hover:text-red-600 font-semibold px-4 py-2">Limpiar Todo</button>
+                <button id="btn-exportar-cruce-excel" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-full shadow-md flex items-center transform hover:scale-105 transition-all">
+                    <i class="fas fa-file-excel mr-2"></i> Exportar Lista
+                </button>
+                <button id="aplicar-filtros" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full shadow-md transform hover:scale-105 transition-all">
+                    🚀 Aplicar Cruce
+                </button>
+            </div>
         </div>
     </div>
-</div>
-    <div class="container mx-auto p-8 relative z-0"> <div id="indicadores-principales" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-        
+
+    <div class="container mx-auto p-8 relative z-0">
+        <div id="indicadores-principales" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
             <div id="indicador-casos" class="indicador bg-white p-3 rounded-lg shadow-md text-center flex flex-col justify-center cursor-pointer">
                 <p class="text-sm font-semibold text-gray-600">Total Casos</p>
                 <p id="total-casos" class="text-2xl font-bold text-blue-800">Cargando...</p>
             </div>
-
             <div id="indicador-mujeres" class="indicador bg-white p-3 rounded-lg shadow-md text-center flex flex-col justify-center cursor-pointer">
                 <p class="text-sm font-semibold text-gray-600">Mujeres</p>
                 <p id="total-mujeres" class="text-2xl font-bold text-pink-800">Cargando...</p>
             </div>
-
             <div id="indicador-varones" class="indicador bg-white p-3 rounded-lg shadow-md text-center flex flex-col justify-center cursor-pointer">
                 <p class="text-sm font-semibold text-gray-600">Varones</p>
                 <p id="total-varones" class="text-2xl font-bold text-blue-800">Cargando...</p>
             </div>
-
             <div id="indicador-enfermedades-cronicas" class="indicador bg-white p-3 rounded-lg shadow-md text-center flex flex-col justify-center cursor-pointer">
                 <p class="text-sm font-semibold text-gray-600">Enf. Crónicas</p>
                 <p id="total-cronicas" class="text-2xl font-bold text-red-800">Cargando...</p>
             </div>
-
             <div id="indicador-alto-riesgo" class="indicador bg-white p-3 rounded-lg shadow-md text-center flex flex-col justify-center cursor-pointer border-2 border-red-500">
                 <p class="text-sm font-semibold text-gray-600">Alto Riesgo</p>
                 <p id="total-alto-riesgo" class="text-2xl font-bold text-red-800">Cargando...</p>
             </div>
         </div>
     </div>      
-    
-    <div id="filtros-avanzados-container" class="container mx-auto px-8">
-        <div id="controles-filtros" class="bg-white p-8 rounded-lg shadow-xl mb-8 hidden"> <h2 class="text-2xl font-bold mb-4">Cruces y Filtrado</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <div>
-                    <label for="selector-campos" class="block text-gray-700 text-sm font-bold mb-2">Seleccionar Variables:</label>
-                    <select id="selector-campos" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" multiple></select>
-                    <button id="agregar-filtro" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mt-2">Añadir Filtro</button>
-                </div>
-                <div class="md:col-span-2">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Filtros Aplicados:</h3>
-                    <div id="filtros-aplicados" class="mb-4"></div>
-                </div>
-            </div>
-            <button id="aplicar-filtros" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Aplicar Cruce</button>
-        </div>
-    </div>
 
     <div class="container mx-auto px-8">
         <div id="capitulos-salud" class="bg-white p-8 rounded-lg shadow-xl mb-8">
@@ -162,41 +123,51 @@
         </div>
     </div>
 
-    <div class="container mx-auto px-8">
-        <div id="informe-ia" class="bg-white p-8 rounded-lg shadow-xl mb-8 hidden">
-            <h2 class="text-2xl font-bold mb-4">Generar Informe con IA</h2>
-            <textarea id="prompt-usuario" class="w-full h-32 p-4 border rounded-md mb-4 resize-none" placeholder="OPCIONAL: Pide un análisis específico. (Ej: 'analizar casos de cáncer en mujeres mayores de 50') Si lo dejas en blanco, se generará el informe estándar."></textarea>
-            
-            <div class="flex space-x-4">
-                <button id="generar-informe-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-full focus:outline-none focus:shadow-outline">Generar Informe</button>
-                <button id="exportar-informe-ia-pdf-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full focus:outline-none focus:shadow-outline hidden">Exportar Informe a PDF</button>
-                <button id="imprimir-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full focus:outline-none focus:shadow-outline hidden">Imprimir</button>
+    <div id="dashboard-graficos" class="container mx-auto px-8 mb-8 hidden">
+        <div class="bg-white p-6 rounded-lg shadow-xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">📊 Visualización de Datos</h2>
+                <span class="text-sm text-gray-500 italic">Selecciona una categoría</span>
             </div>
-            
-            <div id="contenedor-informe" class="mt-8 prose max-w-none">
-                <p class="text-gray-500">El informe generado por la IA aparecerá aquí.</p>
+
+            <div class="flex flex-wrap gap-2 mb-6 border-b border-gray-200 pb-4">
+                <button id="tab-edad" class="tab-btn bg-blue-600 text-white px-4 py-2 rounded-t-lg font-semibold focus:outline-none transition-colors">
+                    👥 Grupos de Edad
+                </button>
+                <button id="tab-riesgos" class="tab-btn bg-gray-200 text-gray-600 px-4 py-2 rounded-t-lg font-semibold hover:bg-gray-300 focus:outline-none transition-colors">
+                    ❤️ Factores de Riesgo
+                </button>
+                <button id="tab-cancer" class="tab-btn bg-gray-200 text-gray-600 px-4 py-2 rounded-t-lg font-semibold hover:bg-gray-300 focus:outline-none transition-colors">
+                    🎗️ Prevención Cáncer
+                </button>
+                <button id="tab-infecciosas" class="tab-btn bg-gray-200 text-gray-600 px-4 py-2 rounded-t-lg font-semibold hover:bg-gray-300 focus:outline-none transition-colors">
+                    🦠 Infecciosas
+                </button>
+                <button id="tab-otros" class="tab-btn bg-gray-200 text-gray-600 px-4 py-2 rounded-t-lg font-semibold hover:bg-gray-300 focus:outline-none transition-colors">
+                    ⚕️ Otros Temas
+                </button>
+            </div>
+
+            <div class="relative w-full h-96">
+                <div id="panel-grafico-edad" class="chart-panel w-full h-full"><canvas id="edad-chart"></canvas></div>
+                <div id="panel-grafico-riesgos" class="chart-panel w-full h-full hidden"><canvas id="sexo-enfermedad-chart"></canvas></div>
+                <div id="panel-grafico-cancer" class="chart-panel w-full h-full hidden"><canvas id="cancer-chart"></canvas></div>
+                <div id="panel-grafico-infecciosas" class="chart-panel w-full h-full hidden"><canvas id="infecciosas-chart"></canvas></div>
+                <div id="panel-grafico-otros" class="chart-panel w-full h-full hidden"><canvas id="otros-temas-chart"></canvas></div>
             </div>
         </div>
     </div>
 
     <div class="container mx-auto px-8">
-        <div id="dashboard-graficos" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 hidden">
-            <div class="bg-white p-6 rounded-lg shadow-md">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4">Grupos de Edad</h3>
-                <canvas id="edad-chart"></canvas>
+        <div id="informe-ia" class="bg-white p-8 rounded-lg shadow-xl mb-8 hidden">
+            <h2 class="text-2xl font-bold mb-4">Generar Informe con IA</h2>
+            <textarea id="prompt-usuario" class="w-full h-32 p-4 border rounded-md mb-4 resize-none" placeholder="OPCIONAL: Pide un análisis específico..."></textarea>
+            <div class="flex space-x-4">
+                <button id="generar-informe-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-full focus:outline-none focus:shadow-outline">Generar Informe</button>
+                <button id="exportar-informe-ia-pdf-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full focus:outline-none focus:shadow-outline hidden">Exportar Informe a PDF</button>
+                <button id="imprimir-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full focus:outline-none focus:shadow-outline hidden">Imprimir</button>
             </div>
-            <div class="bg-white p-6 rounded-lg shadow-md">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4">Casos de Cáncer</h3>
-                <canvas id="cancer-chart"></canvas>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow-md">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4">Casos de Infecciosas</h3>
-                <canvas id="infecciosas-chart"></canvas>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow-md md:col-span-2 lg:col-span-3">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4">Casos por Sexo y Enfermedad</h3>
-                <canvas id="sexo-enfermedad-chart"></canvas>
-            </div>
+            <div id="contenedor-informe" class="mt-8 prose max-w-none"></div>
         </div>
     </div>
     
@@ -211,9 +182,6 @@
             </div>
         </div>
     </div>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
     <script src="estadisticas.js"></script>
 </body>

@@ -146,6 +146,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const imprimirBtn = document.getElementById('imprimir-btn');
     const iaBtn = document.getElementById('mostrar-ia-btn');
     const btnExportarCruce = document.getElementById('btn-exportar-cruce-excel');
+    // LÓGICA DE PESTAÑAS (TABS) PARA GRÁFICOS
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const chartPanels = document.querySelectorAll('.chart-panel');
 
     // =================================================================================
     // 3. INICIALIZACIÓN Y EVENTOS
@@ -208,6 +211,34 @@ document.addEventListener('DOMContentLoaded', () => {
                     text: `Visualizando ${currentFilteredData.length} registros del área de Seguridad.`,
                     timer: 2000,
                     showConfirmButton: false
+                });
+            });
+        }
+        // Solo si existen los botones (para evitar errores si cambias el HTML)
+        if (tabBtns.length > 0) {
+            tabBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // 1. Resetear estilos de todos los botones (gris)
+                    tabBtns.forEach(b => {
+                        b.classList.remove('bg-blue-600', 'text-white');
+                        b.classList.add('bg-gray-200', 'text-gray-600');
+                    });
+
+                    // 2. Activar el botón clickeado (azul)
+                    btn.classList.remove('bg-gray-200', 'text-gray-600');
+                    btn.classList.add('bg-blue-600', 'text-white');
+
+                    // 3. Ocultar TODOS los paneles de gráficos
+                    chartPanels.forEach(p => p.classList.add('hidden'));
+
+                    // 4. Mostrar SOLO el panel correspondiente
+                    // El ID del botón es "tab-edad" -> buscamos "panel-grafico-edad"
+                    const feature = btn.id.replace('tab-', ''); 
+                    const targetPanel = document.getElementById(`panel-grafico-${feature}`);
+                    
+                    if (targetPanel) {
+                        targetPanel.classList.remove('hidden');
+                    }
                 });
             });
         }
@@ -277,11 +308,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Simular click en total al inicio
         if (filtroTotalBtn) filtroTotalBtn.click();
     }
-
-    // =================================================================================
-    // 4. FUNCIONES PRINCIPALES (CON DEDUPLICACIÓN)
-    // =================================================================================
-
     async function fetchData(tipoInicial) {
         try {
             const [dataResponse, indicadoresResponse, camposResponse] = await Promise.all([
@@ -292,34 +318,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const rawData = await dataResponse.json();
             
-            // --- NUEVO BLOQUE: DEDUPLICACIÓN DE DATOS POR DNI ---
-            // Usamos un Map para quedarnos con una sola copia de cada DNI.
-            // Si un DNI aparece dos veces, nos quedamos con el primero que encuentre (o el último).
+            // --- BLOQUE MEJORADO: LIMPIEZA Y DIAGNÓSTICO ---
             const uniqueMap = new Map();
+            let contadores = { General: 0, Seguridad: 0 };
             
             rawData.forEach(item => {
-                // Nos aseguramos de que el DNI exista y sea tratado como string para evitar errores
-                const dni = item['DNI'] ? String(item['DNI']).trim() : null;
+                let dni = item['DNI'] ? String(item['DNI']).trim() : null;
+                const poblacion = item['Poblacion'] || 'General';
                 
-                if (dni) {
-                    // Si el DNI no está en el mapa, lo agregamos.
-                    // Si ya está, lo ignoramos (esto elimina el duplicado)
-                    if (!uniqueMap.has(dni)) {
-                        uniqueMap.set(dni, item);
+                // 1. Si no tiene DNI, le inventamos uno para NO PERDER el dato
+                if (!dni) {
+                    // Verificamos si al menos tiene Apellido o Edad para considerarlo dato válido
+                    if (item['Apellido'] || item['Edad']) {
+                        dni = `SIN-DNI-${Math.random()}`; 
+                    } else {
+                        return; // Si no tiene DNI, ni Apellido, ni Edad, es una fila vacía basura.
                     }
+                }
+
+                // 2. Clave única por población
+                const uniqueKey = `${dni}-${poblacion}`;
+                
+                if (!uniqueMap.has(uniqueKey)) {
+                    uniqueMap.set(uniqueKey, item);
+                    if (contadores[poblacion] !== undefined) contadores[poblacion]++;
                 } else {
-                    // Si no tiene DNI, lo guardamos igual (aunque es raro) usando un índice único
-                    // Opcional: uniqueMap.set('no-dni-' + Math.random(), item);
+                    // Si entra acá, es un DUPLICADO REAL (Mismo DNI en la misma hoja)
+                    // Solo lo mostramos en consola para que tú lo sepas, pero NO lo sumamos.
+                    console.warn(`⚠️ DNI Duplicado detectado en ${poblacion}: ${dni} (Se contó solo una vez)`);
                 }
             });
 
             // Convertimos el mapa de vuelta a un array limpio
             const uniqueData = Array.from(uniqueMap.values());
-            console.log(`🧹 Limpieza de duplicados: ${rawData.length} filas originales -> ${uniqueData.length} pacientes únicos.`);
+            console.log(`📊 Reporte de Carga:`);
+            console.log(`   - Filas Totales leídas: ${rawData.length}`);
+            console.log(`   - Pacientes Únicos General: ${contadores.General}`);
+            console.log(`   - Pacientes Únicos Seguridad: ${contadores.Seguridad} (Debería coincidir con tu Excel si no hay duplicados)`);
 
             // ----------------------------------------------------
 
-            // Procesamos edades una sola vez sobre los datos únicos
             allData = uniqueData.map(row => {
                 row.Edad = parseEdad(row.Edad);
                 return row;
@@ -625,115 +663,204 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =================================================================================
-    // 7. GRÁFICOS (Chart.js)
+    // 7. GRÁFICOS (Chart.js) - VERSIÓN MEJORADA
     // =================================================================================
 
     function buildDashboard(data) {
+        // Destruir instancias previas para evitar "fantasmas" visuales
         Object.values(chartInstances).forEach(chart => { if(chart) chart.destroy(); });
+        
+        // Configuración global de fuentes y colores
+        Chart.defaults.font.family = "'Segoe UI', 'Helvetica Neue', 'Arial', sans-serif";
+        Chart.defaults.color = '#4B5563';
+        
         createAgeChart(data);
         createCancerChart(data);
         createInfectiousChart(data);
-        createSexAndDiseaseChart(data);
+        createRiskFactorsChart(data); // Antes se llamaba createSexAndDiseaseChart
     }
 
     function createAgeChart(data) {
-        if (!data || data.length === 0) return;
+        const ctx = document.getElementById('edad-chart');
+        if (!ctx || !data.length) return;
+
         const counts = {
             'Menores de 18': data.filter(r => r.Edad < 18).length,
-            '18 a 30': data.filter(r => r.Edad >= 18 && r.Edad <= 30).length,
-            '30 a 50': data.filter(r => r.Edad > 30 && r.Edad <= 50).length,
-            'Mayores de 50': data.filter(r => r.Edad > 50).length,
+            'Jóvenes (18-30)': data.filter(r => r.Edad >= 18 && r.Edad <= 30).length,
+            'Adultos (31-50)': data.filter(r => r.Edad > 30 && r.Edad <= 50).length,
+            'Mayores (+50)': data.filter(r => r.Edad > 50).length,
         };
-        const ctx = document.getElementById('edad-chart');
-        if (ctx) {
-            chartInstances['edad-chart'] = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(counts),
-                    datasets: [{
-                        label: 'Casos por Grupo de Edad',
-                        data: Object.values(counts),
-                        backgroundColor: ['#42A5F5', '#FF6384', '#FFCE56', '#8e5ea2'],
-                    }]
+
+        chartInstances['edad-chart'] = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(counts),
+                datasets: [{
+                    label: 'Cantidad de Pacientes',
+                    data: Object.values(counts),
+                    backgroundColor: ['#60A5FA', '#3B82F6', '#2563EB', '#1D4ED8'], // Degradado azul
+                    borderRadius: 5,
+                    barPercentage: 0.6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const val = context.raw;
+                                const total = data.length;
+                                const percentage = ((val / total) * 100).toFixed(1) + '%';
+                                return `${val} casos (${percentage})`;
+                            }
+                        }
+                    }
                 },
-                options: { responsive: true, plugins: { legend: { display: false } } }
-            });
-        }
+                scales: {
+                    y: { beginAtZero: true, grid: { display: true, drawBorder: false } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
     }
 
     function createCancerChart(data) {
-        if (!data || data.length === 0) return;
-        const cases = {
-            'Colon': new Set(data.filter(r => normalizeString(r['SOMF']) === 'patologico' || normalizeString(r['Cáncer colon - Colonoscopía']) === 'patologico').map(r => r.DNI)).size,
-            'Mama': new Set(data.filter(r => normalizeString(r['Cáncer mama - Mamografía']) === 'patologico').map(r => r.DNI)).size,
-            'Cérvico Uterino': new Set(data.filter(r => normalizeString(r['Cáncer cérvico uterino - HPV']) === 'patologico' || normalizeString(r['Cáncer cérvico uterino - PAP']) === 'patologico').map(r => r.DNI)).size,
-        };
         const ctx = document.getElementById('cancer-chart');
-        if (ctx) {
-            chartInstances['cancer-chart'] = new Chart(ctx, {
-                type: 'pie',
-                data: {
-                    labels: Object.keys(cases),
-                    datasets: [{
-                        label: 'Casos de Cáncer',
-                        data: Object.values(cases),
-                        backgroundColor: ['#FFCD56', '#FF9F40', '#FF6384'],
-                    }]
-                },
-                options: { responsive: true, plugins: { legend: { position: 'top' } } }
-            });
-        }
+        if (!ctx || !data.length) return;
+
+        // Calculamos casos POSITIVOS/PATOLÓGICOS solamente
+        const cases = {
+            'Mama': new Set(data.filter(r => normalizeString(r['Cáncer mama - Mamografía']) === 'patologico' || normalizeString(r['Cáncer mama - Eco mamaria']) === 'patologico').map(r => r.DNI || Math.random())).size,
+            'Cérvix (HPV/PAP)': new Set(data.filter(r => normalizeString(r['Cáncer cérvico uterino - HPV']) === 'patologico' || normalizeString(r['Cáncer cérvico uterino - PAP']) === 'patologico').map(r => r.DNI || Math.random())).size,
+            'Colon': new Set(data.filter(r => normalizeString(r['SOMF']) === 'patologico' || normalizeString(r['Cáncer colon - Colonoscopía']) === 'patologico').map(r => r.DNI || Math.random())).size,
+            'Próstata': new Set(data.filter(r => normalizeString(r['Próstata - PSA']) === 'patologico').map(r => r.DNI || Math.random())).size
+        };
+
+        // Si no hay casos, mostramos un gráfico vacío elegante o nada
+        const totalAlertas = Object.values(cases).reduce((a,b)=>a+b, 0);
+
+        chartInstances['cancer-chart'] = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(cases),
+                datasets: [{
+                    data: Object.values(cases),
+                    backgroundColor: ['#EC4899', '#F472B6', '#F59E0B', '#10B981'], // Rosas y naranjas
+                    borderWidth: 2,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%', // Hace el agujero de la dona más grande
+                plugins: {
+                    legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } },
+                    title: {
+                        display: true,
+                        text: totalAlertas === 0 ? 'Sin hallazgos patológicos' : `${totalAlertas} Hallazgos`,
+                        position: 'top',
+                        font: { size: 14 }
+                    }
+                }
+            }
+        });
     }
 
     function createInfectiousChart(data) {
-        if (!data || data.length === 0) return;
+        const ctx = document.getElementById('infecciosas-chart');
+        if (!ctx || !data.length) return;
+
         const cases = {
             'VIH': data.filter(r => normalizeString(r['VIH']) === 'positivo').length,
             'Hepatitis B': data.filter(r => normalizeString(r['Hepatitis B']) === 'positivo').length,
             'Hepatitis C': data.filter(r => normalizeString(r['Hepatitis C']) === 'positivo').length,
             'Chagas': data.filter(r => normalizeString(r['Chagas']) === 'positivo').length,
+            'Sífilis (VDRL)': data.filter(r => normalizeString(r['VDRL']) === 'positivo').length,
         };
-        const ctx = document.getElementById('infecciosas-chart');
-        if (ctx) {
-            chartInstances['infecciosas-chart'] = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(cases),
-                    datasets: [{
-                        label: 'Casos Infecciosas',
-                        data: Object.values(cases),
-                        backgroundColor: ['#FF5722', '#F44336', '#E91E63', '#9C27B0'],
-                    }]
+
+        chartInstances['infecciosas-chart'] = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(cases),
+                datasets: [{
+                    label: 'Casos Positivos',
+                    data: Object.values(cases),
+                    backgroundColor: ['#EF4444', '#F87171', '#DC2626', '#B91C1C', '#991B1B'], // Gama de Rojos (Alerta)
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'y', // Hacemos las barras HORIZONTALES para leer mejor los nombres
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
                 },
-                options: { responsive: true, plugins: { legend: { display: false } } }
-            });
-        }
+                scales: {
+                    x: { beginAtZero: true, ticks: { precision: 0 } } // Solo números enteros
+                }
+            }
+        });
     }
 
-    function createSexAndDiseaseChart(data) {
-        if (!data || data.length === 0) return;
-        const cases = {
-            'Diabetes': data.filter(r => normalizeString(r.Diabetes) === 'presenta').length,
+    
+
+    // RENOMBRADO: De 'createSexAndDiseaseChart' a 'createRiskFactorsChart'
+    // CAMBIO CLAVE: Usamos barras horizontales porque las enfermedades se superponen
+    function createRiskFactorsChart(data) {
+        // Asegúrate de que en el HTML el canvas tenga id="sexo-enfermedad-chart" (o cámbialo aquí y allá)
+        const ctx = document.getElementById('sexo-enfermedad-chart'); 
+        if (!ctx || !data.length) return;
+
+        const factors = {
+            'Sobrepeso/Obesidad': data.filter(r => normalizeString(r.IMC).includes('obesidad') || normalizeString(r.IMC).includes('sobrepeso')).length,
             'Hipertensión': data.filter(r => normalizeString(r['Presión Arterial']).includes('hipertens')).length,
+            'Tabaquismo': data.filter(r => normalizeString(r.Tabaco) === 'fuma').length,
             'Dislipemias': data.filter(r => normalizeString(r.Dislipemias) === 'presenta').length,
-            'Fumadores': data.filter(r => normalizeString(r.Tabaco) === 'fuma').length,
-            'Obesos': data.filter(r => normalizeString(r.IMC).includes('obesidad')).length,
+            'Diabetes': data.filter(r => normalizeString(r.Diabetes) === 'presenta').length,
         };
-        const ctx = document.getElementById('sexo-enfermedad-chart');
-        if (ctx) {
-            chartInstances['sexo-enfermedad-chart'] = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: Object.keys(cases),
-                    datasets: [{
-                        label: 'Casos',
-                        data: Object.values(cases),
-                        backgroundColor: ['#42A5F5', '#FF6384', '#FFCE56', '#FF9F40', '#8e5ea2'],
-                    }]
-                },
-                options: { responsive: true, plugins: { legend: { position: 'top' } } }
-            });
-        }
+
+        // Ordenamos de mayor a menor para que se vea mejor
+        const sortedEntries = Object.entries(factors).sort((a, b) => b[1] - a[1]);
+        const labels = sortedEntries.map(e => e[0]);
+        const values = sortedEntries.map(e => e[1]);
+
+        chartInstances['sexo-enfermedad-chart'] = new Chart(ctx, {
+            type: 'bar', // Barra normal
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Prevalencia',
+                    data: values,
+                    backgroundColor: '#14B8A6', // Color Teal (IAPOS)
+                    borderRadius: 4,
+                    barPercentage: 0.7
+                }]
+            },
+            options: {
+                indexAxis: 'y', // Barras HORIZONTALES
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: 'Factores de Riesgo Más Frecuentes' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const val = context.raw;
+                                const total = data.length;
+                                const percentage = ((val / total) * 100).toFixed(1) + '%';
+                                return `${val} casos (${percentage} del total)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
     }
 
     function buildHealthChaptersMenu(dataParaCalcular) {
