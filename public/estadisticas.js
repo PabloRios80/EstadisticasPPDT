@@ -677,7 +677,8 @@ document.addEventListener('DOMContentLoaded', () => {
         createAgeChart(data);
         createCancerChart(data);
         createInfectiousChart(data);
-        createRiskFactorsChart(data); // Antes se llamaba createSexAndDiseaseChart
+        createRiskFactorsChart(data);
+        createOtherHealthChart(data); // Antes se llamaba createSexAndDiseaseChart
     }
 
     function createAgeChart(data) {
@@ -858,6 +859,68 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                         }
                     }
+                }
+            }
+        });
+    }
+    function createOtherHealthChart(data) {
+        // 1. Buscamos el elemento
+        const ctx = document.getElementById('otros-temas-chart');
+        
+        // 2. PROTECCIÓN CRÍTICA: Si no existe el canvas en el HTML, salimos sin romper nada.
+        if (!ctx) {
+            console.warn("No se encontró el canvas 'otros-temas-chart'. El gráfico no se dibujará, pero el resto sigue.");
+            return;
+        }
+
+        // 3. Calculamos los datos
+        const topics = {
+            'Salud Bucal (Riesgo)': data.filter(r => normalizeString(r['Control Odontológico - Adultos']) === 'riesgo alto').length,
+            'Salud Renal (Patológico)': data.filter(r => normalizeString(r['ERC']) === 'patológico').length,
+            'Visión Alterada': data.filter(r => normalizeString(r['Agudeza visual']) === 'alterada').length,
+            'EPOC': data.filter(r => normalizeString(r['EPOC']) === 'se verifica').length,
+            'Depresión': data.filter(r => normalizeString(r['Depresión']) === 'se verifica').length,
+            'Violencia': data.filter(r => normalizeString(r['Violencia']) === 'se verifica').length
+        };
+
+        // 4. Ordenamos para que quede bonito (Barra más larga arriba)
+        const sortedEntries = Object.entries(topics).sort((a, b) => b[1] - a[1]);
+
+        // 5. Dibujamos
+        chartInstances['otros-temas-chart'] = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: sortedEntries.map(e => e[0]),
+                datasets: [{
+                    label: 'Casos',
+                    data: sortedEntries.map(e => e[1]),
+                    backgroundColor: [
+                        '#7C3AED', // Violeta intenso
+                        '#8B5CF6', 
+                        '#A78BFA', 
+                        '#C4B5FD', 
+                        '#DDD6FE',
+                        '#EDE9FE'  // Violeta muy suave
+                    ],
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y', // <--- ESTO HACE LAS BARRAS LATERALES
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.raw} casos`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { beginAtZero: true, ticks: { precision: 0 } }
                 }
             }
         });
