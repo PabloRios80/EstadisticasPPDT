@@ -498,10 +498,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // =================================================================================
     // 6. FILTROS AVANZADOS Y EXPORTACIÓN EXCEL
     // =================================================================================
-
-    function createFilterUI() {
+function createFilterUI() {
         if(!selectorCampos) return;
         const camposSeleccionados = Array.from(selectorCampos.selectedOptions).map(option => option.value);
+        
         camposSeleccionados.forEach(campo => {
             if (document.getElementById(`filtro-${campo}`)) return;
             
@@ -515,6 +515,7 @@ document.addEventListener('DOMContentLoaded', () => {
             filtroDiv.appendChild(labelCampo);
             
             if (campo === 'Edad') {
+                // ... (El código de edad se mantiene igual) ...
                 const divRango = document.createElement('div');
                 divRango.classList.add('flex', 'space-x-2', 'mb-2');
                 const inputDesde = document.createElement('input');
@@ -527,17 +528,46 @@ document.addEventListener('DOMContentLoaded', () => {
                 divRango.appendChild(inputHasta);
                 filtroDiv.appendChild(divRango);
             } else {
-                const uniqueOptions = [...new Set(allData.map(row => row[campo]).filter(val => val && val.trim() !== ''))];
+                // --- AQUÍ ESTÁ LA CORRECCIÓN DE LIMPIEZA ---
+                
+                const uniqueOptionsMap = new Map(); // Usamos un Map para guardar versiones únicas
+
+                allData.forEach(row => {
+                    const val = row[campo];
+                    if (!val) return; // Ignorar nulos
+
+                    const strVal = String(val).trim();
+                    
+                    // 1. IGNORAR VALORES BASURA (Guiones, puntos solos, vacíos)
+                    if (strVal === '' || strVal === '-' || strVal === '--' || strVal === '.') return;
+
+                    // 2. UNIFICAR MAYÚSCULAS/MINÚSCULAS
+                    // Usamos la versión minúscula como "clave" para evitar duplicados
+                    const lowerKey = strVal.toLowerCase();
+                    
+                    // Solo guardamos si no hemos visto esta palabra antes
+                    if (!uniqueOptionsMap.has(lowerKey)) {
+                        // Guardamos la versión original (strVal) o la convertimos a "Tipo Título" si prefieres
+                        uniqueOptionsMap.set(lowerKey, strVal);
+                    }
+                });
+
+                // Convertimos el Map a array y ordenamos alfabéticamente
+                const uniqueOptions = Array.from(uniqueOptionsMap.values()).sort();
+
                 uniqueOptions.forEach(opcion => {
                     const checkboxDiv = document.createElement('div');
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
-                    checkbox.id = `opcion-${campo}-${opcion.replace(/\s+/g, '-')}`;
+                    // Usamos replace para quitar espacios en el ID y evitar errores
+                    checkbox.id = `opcion-${campo}-${opcion.replace(/[^a-zA-Z0-9]/g, '-')}`;
                     checkbox.value = opcion;
+                    
                     const labelOpcion = document.createElement('label');
                     labelOpcion.textContent = opcion;
                     labelOpcion.setAttribute('for', checkbox.id);
                     labelOpcion.classList.add('ml-2', 'text-gray-700', 'text-sm');
+                    
                     checkboxDiv.appendChild(checkbox);
                     checkboxDiv.appendChild(labelOpcion);
                     filtroDiv.appendChild(checkboxDiv);
@@ -568,22 +598,39 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         return filters;
     }
-
-    function applyFiltersAndRenderDashboard() {
+function applyFiltersAndRenderDashboard() {
         const filters = getFiltersFromUI();
+        
         const filteredData = allData.filter(row => {
             return filters.every(filter => {
+                // Lógica para Edad (se mantiene igual)
                 if (filter.field === 'Edad') {
-                    return row.Edad >= filter.value.desde && row.Edad <= filter.value.hasta;
+                    // Aseguramos que sea número
+                    const edadDato = parseFloat(row.Edad);
+                    return !isNaN(edadDato) && edadDato >= filter.value.desde && edadDato <= filter.value.hasta;
                 }
+                
+                // Lógica para Texto (Checkboxes)
                 if (filter.operator === 'in') {
-                    return filter.value.includes(row[filter.field]);
+                    const datoFila = row[filter.field];
+                    
+                    // Si el dato está vacío en la fila, no coincide
+                    if (!datoFila) return false;
+
+                    // --- CORRECCIÓN AQUÍ: COMPARACIÓN FLEXIBLE ---
+                    // Convertimos ambos lados a minúsculas y normalizamos para comparar
+                    const datoNormalizado = normalizeString(datoFila);
+                    
+                    // Verificamos si ALGUN valor seleccionado (normalizado) coincide con el dato (normalizado)
+                    return filter.value.some(valorSeleccionado => 
+                        normalizeString(valorSeleccionado) === datoNormalizado
+                    );
                 }
                 return false;
             });
         });
         
-        // --- GUARDAMOS EL RESULTADO PARA QUE EL EXCEL LO USE ---
+        // Actualizamos variable global y dashboard
         currentFilteredData = filteredData; 
         updateDashboardMetrics(filteredData);
         
