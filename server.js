@@ -1,6 +1,6 @@
 // --- ESPÍA DE DIAGNÓSTICO ---
 console.log("-----------------------------------------");
-console.log("--- INICIANDO SERVIDOR OPTIMIZADO (512MB RAM SAFE) ---");
+console.log("--- INICIANDO SERVIDOR HÍBRIDO (CALIDAD + RENDIMIENTO) ---");
 console.log("-----------------------------------------");
 
 require('dotenv').config();
@@ -14,14 +14,13 @@ const axios = require('axios');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --- VARIABLES GLOBALES ---
+// --- VARIABLES GLOBALES (CACHÉ) ---
 let datosEnMemoria = []; 
 let indicadoresCache = null; 
 let camposCache = null;
 let contextoDelPrograma = '';
 
-// --- LISTA DE COLUMNAS A CONSERVAR (Crucial para ahorrar RAM) ---
-// Solo guardamos lo que la app realmente usa.
+// --- LISTA DE COLUMNAS A CONSERVAR (DIETA DE DATOS) ---
 const CAMPOS_PERMITIDOS = [
     'DNI', 'Sexo', 'Edad', 'Poblacion', 'Apellido', 'Nombre', 'Apellido y Nombre', 'Tipo',
     'Diabetes', 'Presión Arterial', 'Dislipemias', 'IMC', 'Tabaco',
@@ -33,7 +32,7 @@ const CAMPOS_PERMITIDOS = [
     'EPOC', 'Aneurisma aorta', 'Osteoporosis', 'Aspirina', 'Depresión',
     'Actividad física', 'Seguridad vial', 'Caídas en adultos mayores',
     'Abuso alcohol', 'Violencia', 'Inmunizaciones', 'Ácido fólico',
-    'Síndrome Metabólico', 'Consumo de sustancias', 'Marca temporal' // Dejamos marca temp por si acaso
+    'Síndrome Metabólico', 'Consumo de sustancias', 'Marca temporal'
 ];
 
 // --- CONFIGURACIÓN GOOGLE ---
@@ -112,16 +111,13 @@ async function cargarDatosDeGoogle() {
                 if (!values || !values.length) return [];
                 
                 const headers = values[0];
-                // Mapeamos solo lo necesario
                 return values.slice(1).map(row => {
                     const obj = {};
                     headers.forEach((h, i) => {
-                        // --- FILTRO DE MEMORIA ---
                         if (h && CAMPOS_PERMITIDOS.includes(h)) {
                             obj[h] = row[i];
                         }
                     });
-                    // Corrección de nombre
                     if (!obj['Apellido y Nombre'] && (obj['Apellido'] || obj['Nombre'])) {
                         obj['Apellido y Nombre'] = `${obj['Apellido']||''} ${obj['Nombre']||''}`.trim();
                     }
@@ -135,9 +131,7 @@ async function cargarDatosDeGoogle() {
         datosEnMemoria = results.flat();
         console.log(`✅ [2/3] Datos filtrados en RAM: ${datosEnMemoria.length} filas.`);
 
-        // Pre-Calcular para evitar picos de CPU luego
         preCalcularTodo();
-        
         return true;
     } catch (e) {
         console.error('❌ Error fatal cargando datos:', e);
@@ -152,15 +146,14 @@ function preCalcularTodo() {
     const primerRegistro = datosEnMemoria[0];
     camposCache = Object.keys(primerRegistro).filter(c => c !== 'Poblacion' && c !== 'Apellido y Nombre');
 
-    // 2. Calcular Indicadores (Para que la respuesta sea instantánea)
-    // Usamos la misma lógica que tu función original pero aplicada aquí
+    // 2. Calcular Indicadores Rápidos (Para la vista general)
     indicadoresCache = calcularIndicadoresInterno(datosEnMemoria);
     console.log("🚀 [3/3] Cachés generadas. Sistema listo.");
 }
 
+// --- LÓGICA RÁPIDA PARA EL DASHBOARD ---
 function calcularIndicadoresInterno(data) {
     const dniMap = new Map();
-    // Lógica de deduplicación para indicadores (último registro válido)
     data.forEach(row => { if (row['DNI']) dniMap.set(row['DNI'], row); });
     
     const sexos = { masculino: 0, femenino: 0 };
@@ -214,29 +207,22 @@ function calcularIndicadoresInterno(data) {
 
 app.get('/obtener-campos', (req, res) => {
     if (camposCache) return res.json(camposCache);
-    if (datosEnMemoria.length > 0) { // Fallback por si la caché falló
-        return res.json(Object.keys(datosEnMemoria[0]).filter(c => c!=='Poblacion'));
-    }
+    if (datosEnMemoria.length > 0) return res.json(Object.keys(datosEnMemoria[0]).filter(c => c!=='Poblacion'));
     res.status(503).json({ error: 'Iniciando...' });
 });
 
 app.get('/obtener-datos-completos', async (req, res) => {
-    // Si hay datos en memoria, filtramos y enviamos.
     if (datosEnMemoria && datosEnMemoria.length > 0) {
         const tipo = req.query.tipo;
         const data = tipo ? datosEnMemoria.filter(r => normalizeString(r['Tipo']) === normalizeString(tipo)) : datosEnMemoria;
         return res.json(data);
     }
-    // Si no hay datos, intentamos recargar
     await cargarDatosDeGoogle();
     res.json(datosEnMemoria || []);
 });
 
 app.get('/obtener-indicadores-fijos', (req, res) => {
-    // Si piden el total general, devolvemos la caché instantánea
     if (!req.query.tipo && indicadoresCache) return res.json(indicadoresCache);
-    
-    // Si piden un filtro específico, calculamos sobre la marcha (es rápido porque está en RAM)
     if (datosEnMemoria) {
         const data = req.query.tipo ? datosEnMemoria.filter(r => normalizeString(r['Tipo']) === normalizeString(req.query.tipo)) : datosEnMemoria;
         return res.json(calcularIndicadoresInterno(data));
@@ -244,15 +230,128 @@ app.get('/obtener-indicadores-fijos', (req, res) => {
     res.status(503).json({ error: 'Cargando...' });
 });
 
-// --- RUTA IA (RESTAURADA COMPLETA) ---
-function calcularEstadisticasCompletas(data) {
+// ============================================================================
+// LOGICA DE IA DETALLADA (RECUPERADA)
+// ============================================================================
+
+app.post('/generar-informe', async (req, res) => {
+    try {
+        const { data, userPrompt } = req.body;
+        
+        if (!data || data.length === 0) {
+            return res.status(400).json({ error: 'No se recibieron datos para generar el informe.' });
+        }
+        
+        // Usamos la función DETALLADA para alimentar a la IA
+        const stats = calcularEstadisticasCompletasIA(data);
+        const tipoInforme = determinarTipoInforme(userPrompt);
+        
+        console.log(`🌐 Generando informe con IA (Modelo Prompt Completo)...`);
+        
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+            
+            const promptText = generarPromptEspecifico(tipoInforme, stats, userPrompt, contextoDelPrograma);
+
+            const requestBody = { contents: [{ parts: [{ text: promptText }] }] };
+
+            const response = await axios.post(url, requestBody, { headers: { 'Content-Type': 'application/json' } });
+
+            const contenidoIA = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            if (contenidoIA) {
+                const informeFormateado = formatearInformeIAPOS(contenidoIA, stats, tipoInforme, userPrompt);
+                return res.json({ informe: informeFormateado });
+            } else {
+                throw new Error('La respuesta de la IA vino vacía.');
+            }
+
+        } catch (error) {
+            console.error('❌ Error con IA:', error.response ? error.response.data.error : error.message);
+            const informeAutomatico = generarInformeAutomatico(stats, userPrompt);
+            return res.json({ informe: informeAutomatico });
+        }
+
+    } catch (error) {
+        console.error('💥 Error general en /generar-informe:', error);
+        return res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// --- FUNCIONES DE APOYO PARA LA IA (RECUPERADAS) ---
+
+function determinarTipoInforme(userPrompt) {
+    const prompt = userPrompt ? userPrompt.toLowerCase() : '';
+    if (prompt.includes('cáncer') || prompt.includes('cancer')) return 'cancer';
+    if (prompt.includes('cardio') || prompt.includes('corazón')) return 'cardiovascular';
+    return 'completo';
+}
+
+function generarPromptEspecifico(tipoInforme, stats, userPrompt, contexto) {
+    const resumenEdad = `Edad promedio: ${stats.edadPromedio || 'N/D'}, Rango de edad: ${stats.edadMinima || 'N/D'} - ${stats.edadMaxima || 'N/D'}.`;
+
+    const textoAnalisisCancer = `Para Cáncer Cervicouterino, el programa identificó a **${stats.deteccionCancerCervico_PAP}** casos de **detección temprana** (a través de PAP) y **${stats.riesgoCancerCervico_HPV}** personas con **alto riesgo** (por HPV+), quienes requieren seguimiento prioritario. En cuanto al Cáncer de Colon, se lograron **${stats.deteccionCancerColon_Colono}** **detecciones tempranas** mediante colonoscopía y se identificaron **${stats.riesgoCancerColon_SOMF}** personas con **alto riesgo** (por SOMF+). Para Cáncer de Mama, se registraron **${stats.totalCancerMama}** detecciones, y en hombres, se encontraron **${stats.totalCancerProstata}** casos con PSA alterado.`;
+
+    let instruccionesParaIA;
+
+    if (userPrompt && userPrompt.trim() !== '') {
+        instruccionesParaIA = `
+        **TAREA PRINCIPAL:** Eres un analista de datos de salud. Tu única misión es responder de manera detallada y analítica a la siguiente solicitud específica del usuario: "${userPrompt}"
+        **REGLAS:** Enfócate exclusivamente en responder la pregunta usando los datos proporcionados.`;
+    } else {
+        instruccionesParaIA = `
+        **TAREA PRINCIPAL:** Actúa como un analista experto en salud pública para la provincia de Santa Fe, Argentina. Redacta un informe ejecutivo sobre los resultados del programa "Día Preventivo IAPOS".
+
+        **ESTRUCTURA DEL INFORME:**
+        1. **Introducción:** Misión del programa (usar CONTEXTO).
+        2. **Resumen Ejecutivo:** 3 hallazgos impactantes.
+        3. **Análisis Detallado:**
+            - "Análisis Global de la Población"
+            - "❤️ Riesgo Cardiovascular y Enfermedades Crónicas": Compara con estadísticas provinciales/nacionales.
+            - "🎗️ Prevención de Cáncer": **INSERTA ESTE TEXTO LITERAL:** ${textoAnalisisCancer}
+            - "🦠 Prevalencia de Enfermedades Infecciosas"
+            - "⚕️ Otros Indicadores"
+        4. **Conclusiones:** Impacto del programa.
+        5. **Fuentes:** Cita fuentes externas reales (Ministerio de Salud, OMS) usadas para comparar.
+
+        **ESTILO:** Profesional, sin encabezados de carta. Basa todo en los DATOS.`;
+    }
+    
+    return `
+    ${instruccionesParaIA}
+
+    --------------------------------
+    CONTEXTO Y DATOS
+    --------------------------------
+    **Contexto:** ${contexto}
+
+    **Estadísticas del Grupo:**
+    - Total: ${stats.totalCasos} (${stats.totalMujeres} mujeres, ${stats.totalHombres} hombres).
+    - Edad: ${stats.adultos} adultos, ${stats.pediatrico} pediátricos. ${resumenEdad}
+    - Riesgo CV: Diabetes ${stats.prevalenciaDiabetes}%, HTA ${stats.prevalenciaHipertension}%, Obesidad ${stats.prevalenciaObesidad}%, Tabaco ${stats.prevalenciaTabaquismo}%.
+    - Cáncer: Mama ${stats.totalCancerMama}, Próstata ${stats.totalCancerProstata}.
+    - Infecciosas: VIH ${stats.totalVIH}, Chagas ${stats.totalChagas}, Sífilis ${stats.totalVDRL}.
+    - Otros: Salud Bucal (Riesgo) ${stats.totalSaludBucalRiesgo}, Depresión ${stats.totalDepresion}, EPOC ${stats.totalEPOC}.
+    `;
+}
+
+function calcularEstadisticasCompletasIA(data) {
     const total = data.length;
     if (total === 0) return { totalCasos: 0 };
-    let c = { mujeres: 0, hombres: 0, adultos: 0, pediatrico: 0, diabetes: 0, hipertension: 0, dislipemias: 0, tabaquismo: 0, obesidad: 0, sobrepeso: 0, cancerMama: 0, cancerProstata: 0, vih: 0, hepatitisB: 0, hepatitisC: 0, vdrl: 0, chagas: 0, saludBucal: 0, saludRenal: 0, depresion: 0, epoc: 0, agudezaVisual: 0, edades: [] };
-    
+
+    let c = { 
+        mujeres: 0, hombres: 0, adultos: 0, pediatrico: 0, edades: [],
+        diabetes: 0, hipertension: 0, dislipemias: 0, tabaquismo: 0, obesidad: 0, sobrepeso: 0,
+        cancerMama: 0, cancerProstata: 0, cancerCervico: 0, cancerColon: 0,
+        riesgoHPV: 0, deteccionPAP: 0, riesgoSOMF: 0, deteccionColono: 0,
+        vih: 0, hepatitisB: 0, hepatitisC: 0, vdrl: 0, chagas: 0,
+        saludBucal: 0, saludRenal: 0, depresion: 0, epoc: 0, agudezaVisual: 0 
+    };
+
     for (const r of data) {
         const e = parseInt(r.Edad);
         if(!isNaN(e)) { c.edades.push(e); if(e>=18) c.adultos++; else c.pediatrico++; }
+        
         const s = normalizeString(r.Sexo);
         if(s.includes('fem')) c.mujeres++; else if(s.includes('masc')) c.hombres++;
         
@@ -263,22 +362,35 @@ function calcularEstadisticasCompletas(data) {
         if(normalizeString(r.IMC).includes('obesidad')) c.obesidad++;
         if(normalizeString(r.IMC).includes('sobrepeso')) c.sobrepeso++;
         
-        // Patologias especificas
+        // Cálculos detallados para el prompt
         if(normalizeString(r['Cáncer mama - Mamografía'])==='patologico' || normalizeString(r['Cáncer mama - Eco mamaria'])==='patologico') c.cancerMama++;
         if(normalizeString(r['Próstata - PSA'])==='patologico') c.cancerProstata++;
+        
+        if(normalizeString(r['Cáncer cérvico uterino - HPV'])==='patologico') c.riesgoHPV++;
+        if(normalizeString(r['Cáncer cérvico uterino - PAP'])==='patologico') c.deteccionPAP++;
+        
+        if(normalizeString(r['SOMF'])==='patologico') c.riesgoSOMF++;
+        if(normalizeString(r['Cáncer colon - Colonoscopía'])==='patologico') c.deteccionColono++;
+
         if(normalizeString(r['VIH'])==='positivo') c.vih++;
         if(normalizeString(r['Hepatitis B'])==='positivo') c.hepatitisB++;
         if(normalizeString(r['Hepatitis C'])==='positivo') c.hepatitisC++;
         if(normalizeString(r['VDRL'])==='positivo') c.vdrl++;
         if(normalizeString(r['Chagas'])==='positivo') c.chagas++;
+        
         if(normalizeString(r['Control Odontológico - Adultos'])==='riesgo alto') c.saludBucal++;
         if(normalizeString(r['ERC'])==='patológico') c.saludRenal++;
         if(normalizeString(r['Depresión'])==='se verifica') c.depresion++;
         if(normalizeString(r['EPOC'])==='se verifica') c.epoc++;
-        if(normalizeString(r['Agudeza visual'])==='alterada') c.agudezaVisual++;
     }
+
+    const edadPromedio = c.edades.length > 0 ? (c.edades.reduce((a, b) => a + b, 0) / c.edades.length).toFixed(1) : 'N/D';
+    const edadMin = c.edades.length > 0 ? Math.min(...c.edades) : 'N/D';
+    const edadMax = c.edades.length > 0 ? Math.max(...c.edades) : 'N/D';
+
     return {
         totalCasos: total, totalMujeres: c.mujeres, totalHombres: c.hombres, adultos: c.adultos, pediatrico: c.pediatrico,
+        edadPromedio, edadMinima: edadMin, edadMaxima: edadMax,
         prevalenciaDiabetes: ((c.diabetes/total)*100).toFixed(1),
         prevalenciaHipertension: ((c.hipertension/total)*100).toFixed(1),
         prevalenciaDislipemias: ((c.dislipemias/total)*100).toFixed(1),
@@ -286,51 +398,52 @@ function calcularEstadisticasCompletas(data) {
         prevalenciaObesidad: ((c.obesidad/total)*100).toFixed(1),
         prevalenciaSobrepeso: ((c.sobrepeso/total)*100).toFixed(1),
         totalCancerMama: c.cancerMama, totalCancerProstata: c.cancerProstata,
-        totalVIH: c.vih, totalHepatitisB: c.hepatitisB, totalHepatitisC: c.hepatitisC, totalVDRL: c.vdrl, totalChagas: c.chagas,
-        totalSaludBucalRiesgo: c.saludBucal, totalSaludRenalPatologico: c.saludRenal, totalDepresion: c.depresion, totalEPOC: c.epoc, totalAgudezaVisual: c.agudezaVisual
+        riesgoCancerCervico_HPV: c.riesgoHPV, deteccionCancerCervico_PAP: c.deteccionPAP,
+        riesgoCancerColon_SOMF: c.riesgoSOMF, deteccionCancerColon_Colono: c.deteccionColono,
+        totalVIH: c.vih, totalVDRL: c.vdrl, totalChagas: c.chagas,
+        totalSaludBucalRiesgo: c.saludBucal, totalDepresion: c.depresion, totalEPOC: c.epoc
     };
 }
 
-app.post('/generar-informe', async (req, res) => {
-    try {
-        const { data, userPrompt } = req.body;
-        if (!data || data.length === 0) return res.status(400).json({ error: 'Sin datos' });
-
-        const stats = calcularEstadisticasCompletas(data);
-        console.log(`🌐 IA Prompt: ${userPrompt}`);
-
-        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
-        // Prompt simplificado para asegurar que entre en el request
-        const promptText = `
-        Actúa como experto en salud pública (IAPOS). Analiza: "${userPrompt || 'Informe general'}".
-        Datos clave: Total ${stats.totalCasos}, Diabetes ${stats.prevalenciaDiabetes}%, HTA ${stats.prevalenciaHipertension}%, Obesidad ${stats.prevalenciaObesidad}%.
-        Mujeres: ${stats.totalMujeres}, Hombres: ${stats.totalHombres}.
-        Casos patológicos detectados: Mama ${stats.totalCancerMama}, Próstata ${stats.totalCancerProstata}, VIH ${stats.totalVIH}, Chagas ${stats.totalChagas}.
-        Contexto: ${contextoDelPrograma}
-        Responde con formato HTML limpio (divs, h3, ul).`;
-
-        const response = await axios.post(url, { contents: [{ parts: [{ text: promptText }] }] }, { headers: { 'Content-Type': 'application/json' } });
-        const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        
-        const html = formatearInformeIAPOS(text || "Sin respuesta IA", stats, 'general', userPrompt);
-        res.json({ informe: html });
-
-    } catch (error) {
-        console.error('❌ Error IA:', error.message);
-        res.json({ informe: formatearInformeIAPOS("Error de conexión con IA. Mostrando datos básicos.", calcularEstadisticasCompletas(data), 'error', userPrompt) });
-    }
-});
-
-function formatearInformeIAPOS(contenidoIA, stats, tipo, prompt) {
+function formatearInformeIAPOS(contenidoIA, stats, tipoInforme, userPrompt) {
     const fecha = new Date().toLocaleDateString('es-AR');
-    const logoHtml = logoBase64 ? `<div style="background:#2563EB;border-radius:50%;padding:10px;display:inline-block"><img src="${logoBase64}" height="50"></div>` : '<h3>IAPOS</h3>';
-    return `<div style="font-family:sans-serif;max-width:800px;margin:0 auto">
-        <div style="border-bottom:3px solid #0066CC;padding-bottom:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center">
-            <div>${logoHtml}<br><strong style="color:#0066CC">Informe Día Preventivo</strong></div>
-            <div style="text-align:right;font-size:12px;color:#666">${fecha}<br>Consulta: "${prompt}"</div>
-        </div>
-        <div>${contenidoIA.replace(/\n/g, '<br>')}</div>
-    </div>`;
+    const logoHtml = logoBase64 
+        ? `<div style="display: inline-block; background-color: #2563EB; border-radius: 50%; padding: 10px; line-height: 0;"><img src="${logoBase64}" alt="Logo IAPOS" style="height: 50px; width: auto;"></div>`
+        : '<div style="color: #0066CC; font-size: 28px; font-weight: bold;">🏥 IAPOS</div>';
+    
+    return `
+<div style="font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto;">
+    <table width="100%" style="border-bottom: 3px solid #0066CC; margin-bottom: 20px;">
+        <tr>
+            <td width="50%">
+                ${logoHtml}
+                <div style="color: #0088CC; font-size: 18px; margin-top: 5px;">Informe de Evaluación - Día Preventivo</div>
+            </td>
+            <td width="50%" style="text-align: right;">
+                <div style="color: #666; font-size: 14px;">${fecha}</div>
+                <div style="color: #0066CC; font-size: 12px; margin-top: 5px;">Solicitud: "${userPrompt || 'General'}"</div>
+            </td>
+        </tr>
+    </table>
+    <div style="line-height: 1.6;">
+        ${contenidoIA.replace(/\n/g, '<br>')}
+    </div>
+    <div style="margin-top: 30px; padding-top: 15px; border-top: 2px solid #0066CC; color: #666; font-size: 12px;">
+        <strong>Programa Día Preventivo IAPOS</strong> | Informe generado automáticamente | ${fecha}
+    </div>
+</div>
+`;
+}
+
+function generarInformeAutomatico(stats, userPrompt) {
+    return formatearInformeIAPOS(`
+        <h3>Informe Automático (IA no disponible)</h3>
+        <p>Se procesaron ${stats.totalCasos} casos.</p>
+        <ul>
+            <li>Diabetes: ${stats.prevalenciaDiabetes}%</li>
+            <li>Hipertensión: ${stats.prevalenciaHipertension}%</li>
+        </ul>
+    `, stats, 'error', userPrompt);
 }
 
 // --- RUTAS AUTH ---
