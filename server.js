@@ -24,7 +24,7 @@ let contextoDelPrograma = '';
 const CAMPOS_PERMITIDOS = [
     'DNI', 'Sexo', 'Edad', 'Poblacion', 'Apellido', 'Nombre', 'Apellido y Nombre', 'Tipo',
     'Diabetes', 'Presión Arterial', 'Dislipemias', 'IMC', 'Tabaco',
-    'Cáncer mama - Mamografía', 'Cáncer mama - Eco mamaria',
+    'Cáncer mama - Mamografía', 'Cancer_mama_Eco_mamaria',
     'Cáncer cérvico uterino - HPV', 'Cáncer cérvico uterino - PAP',
     'SOMF', 'Cáncer colon - Colonoscopía', 'Próstata - PSA',
     'VIH', 'Hepatitis B', 'Hepatitis C', 'VDRL', 'Chagas',

@@ -9,8 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let fixedIndicators = {};
     const chartInstances = {};
     let currentFilterType = 'Total';
-
-    // Configuración del Menú de Capítulos
+// Configuración del Menú de Capítulos
     const IAPOS_PREVENTIVE_PROGRAM_MENU = [
         {
             category: "Evaluación de Riesgo Cardiovascular y Enfermedades Crónicas",
@@ -24,7 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     name: "IMC", 
                     subtopics: [
                         { name: "Sobrepeso", column: "IMC", value: "Sobrepeso" },
-                        { name: "Obesidad", column: "IMC", value: ["Obesidad", "Obesidad Morbida"] }
+                        { name: "Obesidad", column: "IMC", value: "Obesidad" },
+                        { name: "Obesidad Mórbida", column: "IMC", value: "Obesidad morbida" }
                     ]
                 },
                 { name: "Tabaquismo", column: "Tabaco", value: "Fuma" }
@@ -39,7 +39,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     name: "Cáncer de Mama", 
                     subtopics: [
                         { name: "mamografía", column: "Cáncer mama - Mamografía", value: "Patologico", parentesis: "detectados por mamografía" },
-                        { name: "ecografía", column: "Cáncer mama - Eco mamaria", value: "Patologico", parentesis: "detectados por ecografía", fixedCount: 0 }
+                        // CORREGIDO: Se eliminó 'fixedCount: 0' para que lea los datos reales
+                        // 'Patologico' coincidirá con 'Patológico' gracias a la normalización automática
+                        { name: "ecografía", column: "Cancer_mama_Eco_mamaria", value: "Patologico", parentesis: "detectados por ecografía" }
                     ]
                 },
                 { 
