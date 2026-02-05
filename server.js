@@ -22,6 +22,7 @@ let contextoDelPrograma = '';
 
 // --- LISTA DE COLUMNAS A CONSERVAR (DIETA DE DATOS) ---
 const CAMPOS_PERMITIDOS = [
+    'Efector',
     'DNI', 'Sexo', 'Edad', 'Poblacion', 'Apellido', 'Nombre', 'Apellido y Nombre', 'Tipo',
     'Diabetes', 'Presión Arterial', 'Dislipemias', 'IMC', 'Tabaco',
     'Cáncer mama - Mamografía', 'Cancer_mama_Eco_mamaria',
