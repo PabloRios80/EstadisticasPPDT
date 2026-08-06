@@ -200,7 +200,7 @@ async function cargarDatosDeGoogle() {
       try {
         const response = await sheets.spreadsheets.values.get({
           spreadsheetId: SPREADSHEET_ID,
-          range: `${source.sheetName}!A:DM`,
+          range: source.sheetName,
           valueRenderOption: "UNFORMATTED_VALUE",
           dateTimeRenderOption: "FORMATTED_STRING",
         });
