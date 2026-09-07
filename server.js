@@ -184,17 +184,20 @@ app.use(
   }),
 );
 app.use(express.json({ limit: "50mb" }));
+
 async function cargarDatosDeSupabase() {
   console.log("📥 [Supabase] Descargando historial_dia_preventivo...");
   const PAGE_SIZE = 1000;
+  // Traemos SOLO las columnas que realmente usamos (evita cargar los ~80 campos "obs_*" innecesarios)
+  const COLUMNAS_NECESARIAS = Object.keys(MAPEO_HISTORIAL_DP).join(",");
   let from = 0;
-  let filas = [];
+  let procesadas = [];
   let sigue = true;
 
   while (sigue) {
     const { data, error } = await supabase
       .from("historial_dia_preventivo")
-      .select("*")
+      .select(COLUMNAS_NECESARIAS)
       .range(from, from + PAGE_SIZE - 1);
 
     if (error) {
@@ -206,19 +209,19 @@ async function cargarDatosDeSupabase() {
       break;
     }
 
-    filas.push(...data);
+    // Mapeamos y descartamos la página cruda de inmediato, en vez de acumular todo el bruto
+    for (const row of data) {
+      const obj = {};
+      for (const [col, header] of Object.entries(MAPEO_HISTORIAL_DP)) {
+        if (row[col] !== null && row[col] !== undefined) obj[header] = row[col];
+      }
+      obj["Poblacion"] = "General";
+      procesadas.push(obj);
+    }
+
     if (data.length < PAGE_SIZE) sigue = false;
     from += PAGE_SIZE;
   }
-
-  const procesadas = filas.map((row) => {
-    const obj = {};
-    for (const [col, header] of Object.entries(MAPEO_HISTORIAL_DP)) {
-      if (row[col] !== null && row[col] !== undefined) obj[header] = row[col];
-    }
-    obj["Poblacion"] = "General";
-    return obj;
-  });
 
   console.log(`✅ [Supabase] historial_dia_preventivo lista (${procesadas.length} filas).`);
   return procesadas;
