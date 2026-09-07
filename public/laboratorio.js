@@ -19,7 +19,7 @@ async function iniciarModuloLaboratorio() {
     console.log("📥 Conectando al servidor para obtener datos médicos...");
 
     try {
-        const respuesta = await fetch('/obtener-datos-completos');
+        const respuesta = await fetch('/obtener-datos-laboratorio');
         const datosCrudos = await respuesta.json();
 
         if (!datosCrudos || datosCrudos.length === 0) {

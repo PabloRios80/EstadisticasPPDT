@@ -507,10 +507,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       renderFixedIndicators(fixedIndicators);
-      // --- NUEVO: LLAMADA AL MÓDULO DE LABORATORIO ---
-      if (typeof iniciarModuloLaboratorio === "function") {
-        iniciarModuloLaboratorio(allData);
-      }
+      
     } catch (error) {
       console.error("Error al cargar datos:", error);
       Swal.fire("Error", "No se pudieron cargar los datos.", "error");

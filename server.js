@@ -298,7 +298,7 @@ async function cargarDatosDeGoogle() {
     // "Integrado" ya NO se lee de acá, viene de Supabase (historial_dia_preventivo)
     const sources = [
       { sheetName: "Seguridad!A:CD", label: "Seguridad" },
-      { sheetName: "Laboratorio_Master!A:AD", label: "Laboratorio" },
+  
     ];
 
     let datosDeSheets = [];
@@ -444,13 +444,17 @@ function calcularIndicadoresInterno(data) {
 }
 
 // --- RUTAS API ---
-app.get("/obtener-campos", (req, res) => {
+app.get("/obtener-campos", async (req, res) => {
+  if (!datosEnMemoria || datosEnMemoria.length === 0) {
+    await cargarTodosLosDatos();
+  }
   if (camposCache) return res.json(camposCache);
-  if (datosEnMemoria.length > 0)
+  if (datosEnMemoria.length > 0) {
     return res.json(
       Object.keys(datosEnMemoria[0]).filter((c) => c !== "Poblacion"),
     );
-  res.status(503).json({ error: "Iniciando..." });
+  }
+  res.status(503).json({ error: "No se pudieron cargar los datos." });
 });
 
 app.get("/obtener-datos-completos", async (req, res) => {
@@ -493,7 +497,42 @@ app.get("/obtener-indicadores-fijos", (req, res) => {
   }
   res.status(503).json({ error: "Cargando..." });
 });
+app.get("/obtener-datos-laboratorio", async (req, res) => {
+  try {
+    const authClient = await getAuthenticatedClient();
+    const sheets = google.sheets({ version: "v4", auth: authClient });
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "Laboratorio_Master!A:AD",
+      valueRenderOption: "UNFORMATTED_VALUE",
+      dateTimeRenderOption: "FORMATTED_STRING",
+    });
 
+    const values = response.data.values;
+    if (!values || values.length === 0) {
+      res.setHeader("Content-Type", "application/json");
+      return res.end("[]");
+    }
+
+    const headers = values[0];
+    res.setHeader("Content-Type", "application/json");
+    res.write("[");
+    for (let i = 1; i < values.length; i++) {
+      const row = values[i];
+      const obj = {};
+      headers.forEach((h, idx) => {
+        if (h && CAMPOS_PERMITIDOS.includes(h)) obj[h] = row[idx];
+      });
+      res.write(JSON.stringify(obj));
+      if (i < values.length - 1) res.write(",");
+    }
+    res.write("]");
+    res.end();
+  } catch (e) {
+    console.error("❌ Error /obtener-datos-laboratorio:", e.message);
+    res.status(500).json({ error: "Error cargando datos de laboratorio." });
+  }
+});
 // ============================================================================
 // LOGICA DE IA DETALLADA
 // ============================================================================
