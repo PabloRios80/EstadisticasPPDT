@@ -10,6 +10,7 @@ const path = require("path");
 const fs = require("fs");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const axios = require("axios");
+const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -92,6 +93,52 @@ const CAMPOS_PERMITIDOS = [
   "clearence de depuracion Creatinina",
 ];
 
+// --- MAPEO: columnas Supabase (snake_case) -> headers originales del frontend ---
+const MAPEO_HISTORIAL_DP = {
+  efector: "Efector",
+  dni: "DNI",
+  sexo: "Sexo",
+  edad: "Edad",
+  apellido_y_nombre: "Apellido y Nombre",
+  tipo: "Tipo",
+  diabetes: "Diabetes",
+  presion_arterial: "Presión Arterial",
+  dislipemias: "Dislipemias",
+  imc: "IMC",
+  tabaco: "Tabaco",
+  cancer_mama_mamografia: "Cáncer mama - Mamografía",
+  cancer_mama_eco_mamaria: "Cancer_mama_Eco_mamaria",
+  cancer_cervico_hpv: "Cáncer cérvico uterino - HPV",
+  cancer_cervico_pap: "Cáncer cérvico uterino - PAP",
+  somf: "SOMF",
+  cancer_colon_colonoscopia: "Cáncer colon - Colonoscopía",
+  prostata_psa: "Próstata - PSA",
+  vih: "VIH",
+  hepatitis_b: "Hepatitis B",
+  hepatitis_c: "Hepatitis C",
+  vdrl: "VDRL",
+  chagas: "Chagas",
+  control_odontologico_adultos: "Control Odontológico - Adultos",
+  erc: "ERC",
+  agudeza_visual: "Agudeza visual",
+  epoc: "EPOC",
+  aneurisma_aorta: "Aneurisma aorta",
+  osteoporosis: "Osteoporosis",
+  aspirina: "Aspirina",
+  depresion: "Depresión",
+  actividad_fisica: "Actividad física",
+  seguridad_vial: "Seguridad vial",
+  caidas_adultos_mayores: "Caídas en adultos mayores",
+  abuso_alcohol: "Abuso alcohol",
+  violencia: "Violencia",
+  inmunizaciones: "Inmunizaciones",
+  acido_folico: "Ácido fólico",
+  sindrome_metabolico: "Síndrome Metabólico",
+  consumo_sustancias: "Consumo de sustancias",
+  marca_temporal: "Marca temporal",
+  link: "Link PDF",
+};
+
 // --- CONFIGURACIÓN GOOGLE ---
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
@@ -105,6 +152,11 @@ const oauth2Client = new google.auth.OAuth2(
   CLIENT_SECRET,
   REDIRECT_URI,
 );
+
+// --- CONFIGURACIÓN SUPABASE ---
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY; // service_role, no anon
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 const SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"];
 
 const mountPath = "/opt/render/project/src/data";
@@ -132,7 +184,45 @@ app.use(
   }),
 );
 app.use(express.json({ limit: "50mb" }));
+async function cargarDatosDeSupabase() {
+  console.log("📥 [Supabase] Descargando historial_dia_preventivo...");
+  const PAGE_SIZE = 1000;
+  let from = 0;
+  let filas = [];
+  let sigue = true;
 
+  while (sigue) {
+    const { data, error } = await supabase
+      .from("historial_dia_preventivo")
+      .select("*")
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) {
+      console.error("❌ Error Supabase historial_dia_preventivo:", error.message);
+      break;
+    }
+    if (!data || data.length === 0) {
+      sigue = false;
+      break;
+    }
+
+    filas.push(...data);
+    if (data.length < PAGE_SIZE) sigue = false;
+    from += PAGE_SIZE;
+  }
+
+  const procesadas = filas.map((row) => {
+    const obj = {};
+    for (const [col, header] of Object.entries(MAPEO_HISTORIAL_DP)) {
+      if (row[col] !== null && row[col] !== undefined) obj[header] = row[col];
+    }
+    obj["Poblacion"] = "General";
+    return obj;
+  });
+
+  console.log(`✅ [Supabase] historial_dia_preventivo lista (${procesadas.length} filas).`);
+  return procesadas;
+}
 // --- FUNCIONES AUXILIARES ---
 function normalizeString(str) {
   if (!str) return "";
@@ -143,7 +233,21 @@ function normalizeString(str) {
     .trim()
     .toLowerCase();
 }
-
+async function cargarTodosLosDatos() {
+  try {
+    const [datosSupabase, datosSheets] = await Promise.all([
+      cargarDatosDeSupabase(),
+      cargarDatosDeGoogle(), // ahora solo trae Seguridad + Laboratorio
+    ]);
+    datosEnMemoria = [...datosSupabase, ...datosSheets];
+    console.log(`✅ Total combinado: ${datosEnMemoria.length} filas.`);
+    preCalcularTodo();
+    return true;
+  } catch (e) {
+    console.error("❌ Error fatal cargando datos combinados:", e);
+    return false;
+  }
+}
 async function cargarContexto() {
   try {
     contextoDelPrograma = fs.readFileSync(
@@ -181,8 +285,6 @@ async function getAuthenticatedClient() {
   if (!loaded) throw new Error("Falta autenticación.");
   return oauth2Client;
 }
-
-// --- FUNCIÓN MAESTRA DE CARGA (OPTIMIZADA Y SECUENCIAL) ---
 async function cargarDatosDeGoogle() {
   console.log("📥 [1/3] Conectando a Google Sheets...");
   try {
@@ -190,13 +292,13 @@ async function cargarDatosDeGoogle() {
     const sheets = google.sheets({ version: "v4", auth: authClient });
 
     // RANGOS EXACTOS PARA NO DESCARGAR COLUMNAS VACÍAS
+    // "Integrado" ya NO se lee de acá, viene de Supabase (historial_dia_preventivo)
     const sources = [
-      { sheetName: "Integrado!A:DM", label: "General" },
       { sheetName: "Seguridad!A:CD", label: "Seguridad" },
       { sheetName: "Laboratorio_Master!A:AD", label: "Laboratorio" },
     ];
 
-    datosEnMemoria = [];
+    let datosDeSheets = [];
 
     // DESCARGA SECUENCIAL PARA NO SATURAR LA MEMORIA
     for (const source of sources) {
@@ -230,7 +332,7 @@ async function cargarDatosDeGoogle() {
             return obj;
           });
 
-          datosEnMemoria.push(...processedRows);
+          datosDeSheets.push(...processedRows);
           console.log(
             `✅ ${source.label} lista (${processedRows.length} filas).`,
           );
@@ -242,15 +344,13 @@ async function cargarDatosDeGoogle() {
         console.error(`❌ Error en ${source.sheetName}:`, e.message);
       }
     }
-
     console.log(
-      `✅ [2/3] Datos totales filtrados: ${datosEnMemoria.length} filas.`,
+      `✅ [2/3] Datos de Sheets filtrados: ${datosDeSheets.length} filas.`,
     );
-    preCalcularTodo();
-    return true;
+    return datosDeSheets;
   } catch (e) {
-    console.error("❌ Error fatal cargando datos:", e);
-    return false;
+    console.error("❌ Error fatal cargando datos de Sheets:", e);
+    return [];
   }
 }
 
@@ -352,7 +452,7 @@ app.get("/obtener-campos", (req, res) => {
 
 app.get("/obtener-datos-completos", async (req, res) => {
   if (!datosEnMemoria || datosEnMemoria.length === 0) {
-    await cargarDatosDeGoogle();
+    await cargarTodosLosDatos();
   }
 
   const tipo = req.query.tipo;
@@ -692,7 +792,7 @@ async function startServer() {
   await cargarContexto();
   app.listen(PORT, async () => {
     console.log(`🚀 Servidor listo en puerto ${PORT}`);
-    await cargarDatosDeGoogle();
+    await cargarTodosLosDatos();
   });
 }
 
