@@ -11,6 +11,8 @@ const fs = require("fs");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const axios = require("axios");
 const { createClient } = require("@supabase/supabase-js");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -154,6 +156,7 @@ const oauth2Client = new google.auth.OAuth2(
 );
 
 // --- CONFIGURACIÓN SUPABASE ---
+const JWT_SECRET = process.env.JWT_SECRET; // el mismo que usan acceso/tablero/etc
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY; // service_role, no anon
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
@@ -184,6 +187,97 @@ app.use(
   }),
 );
 app.use(express.json({ limit: "50mb" }));
+
+// --- LOGIN (interno sin restricción + prestadores por efector) ---
+app.post("/login", async (req, res) => {
+  try {
+    const { usuario, password } = req.body;
+    if (!usuario || !password) {
+      return res.json({ success: false, message: "Usuario y contraseña requeridos." });
+    }
+
+    // 1) ¿Es cuenta interna (superuser en profesionales)?
+    const { data: interno } = await supabase
+      .from("profesionales")
+      .select("*")
+      .eq("usuario", usuario)
+      .eq("activo", true)
+      .eq("es_superuser", true)
+      .maybeSingle();
+
+    if (interno) {
+      const ok = await bcrypt.compare(password, interno.password_hash);
+      if (!ok) return res.json({ success: false, message: "Usuario o contraseña incorrectos." });
+
+      const token = jwt.sign(
+        { tipo: "interno", nombre: interno.nombre, efector_estadisticas: null },
+        JWT_SECRET,
+        { expiresIn: "8h" },
+      );
+      return res.json({
+        success: true,
+        token,
+        nombre: interno.nombre,
+        tipo: "interno",
+        requiereTerminos: false,
+      });
+    }
+
+    // 2) ¿Es cuenta de prestador institucional con acceso a Estadísticas?
+    const { data: prestador } = await supabase
+      .from("prestadores_institucionales")
+      .select("*")
+      .eq("usuario", usuario)
+      .eq("activo", true)
+      .eq("ve_estadisticas", true)
+      .maybeSingle();
+
+    if (prestador) {
+      const ok = await bcrypt.compare(password, prestador.password_hash);
+      if (!ok) return res.json({ success: false, message: "Usuario o contraseña incorrectos." });
+
+      const token = jwt.sign(
+        {
+          tipo: "prestador",
+          nombre: prestador.nombre_institucion,
+          efector_estadisticas: prestador.efector_estadisticas,
+        },
+        JWT_SECRET,
+        { expiresIn: "8h" },
+      );
+      return res.json({
+        success: true,
+        token,
+        nombre: prestador.nombre_institucion,
+        tipo: "prestador",
+        requiereTerminos: !prestador.acepto_terminos_estadisticas,
+      });
+    }
+
+    return res.json({ success: false, message: "Usuario o contraseña incorrectos." });
+  } catch (error) {
+    console.error("❌ Error en /login:", error.message);
+    res.status(500).json({ success: false, message: "Error de conexión." });
+  }
+});
+
+// --- ACEPTAR DISCLAIMER (solo prestadores) ---
+app.post("/aceptar-terminos", verificarToken, async (req, res) => {
+  if (req.tipoUsuario !== "prestador") return res.json({ success: true });
+  try {
+    await supabase
+      .from("prestadores_institucionales")
+      .update({
+        acepto_terminos_estadisticas: true,
+        fecha_aceptacion_terminos: new Date().toISOString(),
+      })
+      .eq("efector_estadisticas", req.efectorFiltro);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("❌ Error en /aceptar-terminos:", error.message);
+    res.status(500).json({ success: false });
+  }
+});
 
 async function cargarDatosDeSupabase() {
   console.log("📥 [Supabase] Descargando historial_dia_preventivo...");
@@ -227,6 +321,29 @@ async function cargarDatosDeSupabase() {
   return procesadas;
 }
 // --- FUNCIONES AUXILIARES ---
+function verificarToken(req, res, next) {
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+  if (!token) {
+    return res.status(401).json({ error: "No autorizado. Iniciá sesión." });
+  }
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    req.tipoUsuario = payload.tipo;
+    req.efectorFiltro = payload.efector_estadisticas || null; // null = sin restricción
+    next();
+  } catch (e) {
+    return res.status(401).json({ error: "Sesión inválida o vencida. Iniciá sesión de nuevo." });
+  }
+}
+
+function filtrarPorEfector(data, efector) {
+  if (!efector) return data; // cuenta interna: sin filtro
+  const efectorNorm = normalizeString(efector);
+  return data.filter((row) => normalizeString(row["Efector"]) === efectorNorm);
+}
+
 function normalizeString(str) {
   if (!str) return "";
   return str
@@ -444,7 +561,7 @@ function calcularIndicadoresInterno(data) {
 }
 
 // --- RUTAS API ---
-app.get("/obtener-campos", async (req, res) => {
+app.get("/obtener-campos", verificarToken, async (req, res) => {
   if (!datosEnMemoria || datosEnMemoria.length === 0) {
     await cargarTodosLosDatos();
   }
@@ -457,17 +574,19 @@ app.get("/obtener-campos", async (req, res) => {
   res.status(503).json({ error: "No se pudieron cargar los datos." });
 });
 
-app.get("/obtener-datos-completos", async (req, res) => {
+app.get("/obtener-datos-completos", verificarToken, async (req, res) => {
   if (!datosEnMemoria || datosEnMemoria.length === 0) {
     await cargarTodosLosDatos();
   }
 
   const tipo = req.query.tipo;
-  const data = tipo
+  let data = tipo
     ? datosEnMemoria.filter(
         (r) => normalizeString(r["Tipo"]) === normalizeString(tipo),
       )
     : datosEnMemoria;
+
+  data = filtrarPorEfector(data, req.efectorFiltro);
 
   // NUEVO SISTEMA DE ENVÍO POR "GOTEO" (STREAMING)
   // En lugar de enviar un bloque gigante que ahoga la RAM, lo enviamos fila por fila.
@@ -485,19 +604,27 @@ app.get("/obtener-datos-completos", async (req, res) => {
   res.end(); // Terminamos de enviar
 });
 
-app.get("/obtener-indicadores-fijos", (req, res) => {
-  if (!req.query.tipo && indicadoresCache) return res.json(indicadoresCache);
+app.get("/obtener-indicadores-fijos", verificarToken, (req, res) => {
+  // Cache global solo sirve para cuentas sin restricción y sin filtro de tipo
+  if (!req.query.tipo && !req.efectorFiltro && indicadoresCache) {
+    return res.json(indicadoresCache);
+  }
   if (datosEnMemoria) {
-    const data = req.query.tipo
+    let data = req.query.tipo
       ? datosEnMemoria.filter(
           (r) => normalizeString(r["Tipo"]) === normalizeString(req.query.tipo),
         )
       : datosEnMemoria;
+    data = filtrarPorEfector(data, req.efectorFiltro);
     return res.json(calcularIndicadoresInterno(data));
   }
   res.status(503).json({ error: "Cargando..." });
 });
-app.get("/obtener-datos-laboratorio", async (req, res) => {
+
+app.get("/obtener-datos-laboratorio", verificarToken, async (req, res) => {
+  if (req.tipoUsuario === "prestador") {
+    return res.status(403).json({ error: "No autorizado para este módulo." });
+  }
   try {
     const authClient = await getAuthenticatedClient();
     const sheets = google.sheets({ version: "v4", auth: authClient });

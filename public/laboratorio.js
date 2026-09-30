@@ -1,129 +1,152 @@
 // --- ARCHIVO: laboratorio.js (Versión Final con Desglose e Interruptor) ---
 
 // Variable global para controlar si el panel está abierto o cerrado
-let moduloLaboratorioAbierto = false; 
+let moduloLaboratorioAbierto = false;
 
 async function iniciarModuloLaboratorio() {
-    let contenedorPrincipal = document.getElementById('contenedor-laboratorio');
+  let contenedorPrincipal = document.getElementById("contenedor-laboratorio");
 
-    // 1. EFECTO INTERRUPTOR: Si ya está abierto, lo ocultamos y terminamos
-    if (moduloLaboratorioAbierto && contenedorPrincipal) {
-        contenedorPrincipal.style.display = 'none';
-        moduloLaboratorioAbierto = false;
-        return;
+  // 1. EFECTO INTERRUPTOR: Si ya está abierto, lo ocultamos y terminamos
+  if (moduloLaboratorioAbierto && contenedorPrincipal) {
+    contenedorPrincipal.style.display = "none";
+    moduloLaboratorioAbierto = false;
+    return;
+  }
+
+  const btn = document.getElementById("btn-laboratorio");
+  if (btn) btn.innerText = "⏳ Analizando...";
+
+  console.log("📥 Conectando al servidor para obtener datos médicos...");
+
+  try {
+    const token = sessionStorage.getItem("dpToken");
+    const respuesta = await fetch("/obtener-datos-laboratorio", {
+      headers: token ? { Authorization: "Bearer " + token } : {},
+    });
+    const datosCrudos = await respuesta.json();
+
+    if (!datosCrudos || datosCrudos.length === 0) {
+      alert("El servidor no devolvió datos médicos.");
+      if (btn) btn.innerText = "🔬 Laboratorio";
+      return;
     }
 
-    const btn = document.getElementById('btn-laboratorio');
-    if (btn) btn.innerText = "⏳ Analizando...";
+    // =========================================================
+    // --- LÓGICA DE CÁLCULO CON DESGLOSE ---
+    // =========================================================
+    let totalesHPV = 0;
+    let positivosHPV = 0;
+    let negativosHPV = 0;
 
-    console.log("📥 Conectando al servidor para obtener datos médicos...");
+    // Contadores específicos
+    let positivos16 = 0;
+    let positivos18 = 0;
+    let positivosOtros = 0;
 
-    try {
-        const respuesta = await fetch('/obtener-datos-laboratorio');
-        const datosCrudos = await respuesta.json();
+    let edadesPositivos = {
+      "Menor de 30": 0,
+      "30 a 39": 0,
+      "40 a 49": 0,
+      "50 a 59": 0,
+      "60 o más": 0,
+    };
 
-        if (!datosCrudos || datosCrudos.length === 0) {
-            alert("El servidor no devolvió datos médicos.");
-            if (btn) btn.innerText = "🔬 Laboratorio";
-            return;
-        }
+    datosCrudos.forEach((row) => {
+      const hpvOtros = (row["HPV OTROS GENOTIPOS DE ALTO RIESGO"] || "")
+        .toString()
+        .trim()
+        .toUpperCase();
+      const hpv18 = (row["HPV GENOTIPO 18"] || "")
+        .toString()
+        .trim()
+        .toUpperCase();
+      const hpv16 = (row["HPV GENOTIPO 16"] || "")
+        .toString()
+        .trim()
+        .toUpperCase();
 
-        // =========================================================
-        // --- LÓGICA DE CÁLCULO CON DESGLOSE ---
-        // =========================================================
-        let totalesHPV = 0;
-        let positivosHPV = 0;
-        let negativosHPV = 0;
-        
-        // Contadores específicos
-        let positivos16 = 0;
-        let positivos18 = 0;
-        let positivosOtros = 0;
+      // Si hay texto en cualquier columna, es un test realizado
+      if (hpvOtros !== "" || hpv18 !== "" || hpv16 !== "") {
+        totalesHPV++;
 
-        let edadesPositivos = {
-            "Menor de 30": 0, "30 a 39": 0, "40 a 49": 0, "50 a 59": 0, "60 o más": 0
-        };
+        const esPosOtros = hpvOtros === "DETECTABLE";
+        const esPos18 = hpv18 === "DETECTABLE";
+        const esPos16 = hpv16 === "DETECTABLE";
 
-        datosCrudos.forEach(row => {
-            const hpvOtros = (row["HPV OTROS GENOTIPOS DE ALTO RIESGO"] || "").toString().trim().toUpperCase();
-            const hpv18 = (row["HPV GENOTIPO 18"] || "").toString().trim().toUpperCase();
-            const hpv16 = (row["HPV GENOTIPO 16"] || "").toString().trim().toUpperCase();
+        // Si AL MENOS UNO es detectable, el paciente es positivo
+        if (esPosOtros || esPos18 || esPos16) {
+          positivosHPV++;
 
-            // Si hay texto en cualquier columna, es un test realizado
-            if (hpvOtros !== "" || hpv18 !== "" || hpv16 !== "") {
-                totalesHPV++;
-                
-                const esPosOtros = hpvOtros === "DETECTABLE";
-                const esPos18 = hpv18 === "DETECTABLE";
-                const esPos16 = hpv16 === "DETECTABLE";
+          // Sumamos a los subtotales específicos
+          if (esPos16) positivos16++;
+          if (esPos18) positivos18++;
+          if (esPosOtros) positivosOtros++;
 
-                // Si AL MENOS UNO es detectable, el paciente es positivo
-                if (esPosOtros || esPos18 || esPos16) {
-                    positivosHPV++;
-                    
-                    // Sumamos a los subtotales específicos
-                    if (esPos16) positivos16++;
-                    if (esPos18) positivos18++;
-                    if (esPosOtros) positivosOtros++;
-                    
-                    // Calculamos la edad
-                    let edadStr = row.Edad;
-                    if (!edadStr && row.DNI) {
-                        const pacienteConEdad = datosCrudos.find(p => p.DNI === row.DNI && p.Edad);
-                        if (pacienteConEdad) edadStr = pacienteConEdad.Edad;
-                    }
+          // Calculamos la edad
+          let edadStr = row.Edad;
+          if (!edadStr && row.DNI) {
+            const pacienteConEdad = datosCrudos.find(
+              (p) => p.DNI === row.DNI && p.Edad,
+            );
+            if (pacienteConEdad) edadStr = pacienteConEdad.Edad;
+          }
 
-                    if (edadStr) {
-                        const edad = parseInt(edadStr, 10);
-                        if (!isNaN(edad)) {
-                            if (edad < 30) edadesPositivos["Menor de 30"]++;
-                            else if (edad >= 30 && edad <= 39) edadesPositivos["30 a 39"]++;
-                            else if (edad >= 40 && edad <= 49) edadesPositivos["40 a 49"]++;
-                            else if (edad >= 50 && edad <= 59) edadesPositivos["50 a 59"]++;
-                            else edadesPositivos["60 o más"]++;
-                        }
-                    }
-                } else {
-                    negativosHPV++;
-                }
+          if (edadStr) {
+            const edad = parseInt(edadStr, 10);
+            if (!isNaN(edad)) {
+              if (edad < 30) edadesPositivos["Menor de 30"]++;
+              else if (edad >= 30 && edad <= 39) edadesPositivos["30 a 39"]++;
+              else if (edad >= 40 && edad <= 49) edadesPositivos["40 a 49"]++;
+              else if (edad >= 50 && edad <= 59) edadesPositivos["50 a 59"]++;
+              else edadesPositivos["60 o más"]++;
             }
-        });
-
-        // Restauramos el botón
-        if (btn) btn.innerText = "🔬 Laboratorio";
-
-        if (totalesHPV === 0) {
-            alert("No se detectaron tests de HPV en la base de datos.");
-            return;
+          }
+        } else {
+          negativosHPV++;
         }
+      }
+    });
 
-        // =========================================================
-        // --- INYECTAR RESULTADOS EN PANTALLA ---
-        // =========================================================
-        
-        // Si no existe el contenedor, lo creamos
-        if (!contenedorPrincipal) {
-            contenedorPrincipal = document.createElement('div');
-            contenedorPrincipal.id = 'contenedor-laboratorio';
-            contenedorPrincipal.style.marginTop = '20px';
-            contenedorPrincipal.style.marginBottom = '20px';
-            contenedorPrincipal.style.padding = '20px';
-            contenedorPrincipal.style.backgroundColor = '#f8f9fa';
-            contenedorPrincipal.style.borderRadius = '8px';
-            contenedorPrincipal.style.maxWidth = '900px';
-            contenedorPrincipal.style.marginLeft = 'auto';
-            contenedorPrincipal.style.marginRight = 'auto';
-            
-            // Lo pegamos justo antes del panel de botones de abajo
-            const areaDeBotones = document.querySelector('.flex.flex-wrap.justify-center.gap-4.mt-6');
-            if(areaDeBotones) {
-                areaDeBotones.parentNode.insertBefore(contenedorPrincipal, areaDeBotones);
-            } else {
-                document.body.appendChild(contenedorPrincipal);
-            }
-        }
+    // Restauramos el botón
+    if (btn) btn.innerText = "🔬 Laboratorio";
 
-        const tarjetaHPV = `
+    if (totalesHPV === 0) {
+      alert("No se detectaron tests de HPV en la base de datos.");
+      return;
+    }
+
+    // =========================================================
+    // --- INYECTAR RESULTADOS EN PANTALLA ---
+    // =========================================================
+
+    // Si no existe el contenedor, lo creamos
+    if (!contenedorPrincipal) {
+      contenedorPrincipal = document.createElement("div");
+      contenedorPrincipal.id = "contenedor-laboratorio";
+      contenedorPrincipal.style.marginTop = "20px";
+      contenedorPrincipal.style.marginBottom = "20px";
+      contenedorPrincipal.style.padding = "20px";
+      contenedorPrincipal.style.backgroundColor = "#f8f9fa";
+      contenedorPrincipal.style.borderRadius = "8px";
+      contenedorPrincipal.style.maxWidth = "900px";
+      contenedorPrincipal.style.marginLeft = "auto";
+      contenedorPrincipal.style.marginRight = "auto";
+
+      // Lo pegamos justo antes del panel de botones de abajo
+      const areaDeBotones = document.querySelector(
+        ".flex.flex-wrap.justify-center.gap-4.mt-6",
+      );
+      if (areaDeBotones) {
+        areaDeBotones.parentNode.insertBefore(
+          contenedorPrincipal,
+          areaDeBotones,
+        );
+      } else {
+        document.body.appendChild(contenedorPrincipal);
+      }
+    }
+
+    const tarjetaHPV = `
             <h2 style="color: #0066cc; border-bottom: 2px solid #0066cc; padding-bottom: 10px; text-align: center;">🔬 Módulo de Laboratorio</h2>
             <div id="lab-tarjetas" style="display: flex; justify-content: center; gap: 20px; margin-top: 20px; flex-wrap: wrap;">
                 
@@ -169,15 +192,14 @@ async function iniciarModuloLaboratorio() {
             </div>
         `;
 
-        contenedorPrincipal.innerHTML = tarjetaHPV;
-        contenedorPrincipal.style.display = 'block';
-        moduloLaboratorioAbierto = true; // Marcamos como abierto
-        
-        contenedorPrincipal.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    contenedorPrincipal.innerHTML = tarjetaHPV;
+    contenedorPrincipal.style.display = "block";
+    moduloLaboratorioAbierto = true; // Marcamos como abierto
 
-    } catch (error) {
-        console.error("Error cargando laboratorio:", error);
-        alert("Hubo un error de conexión al pedirle los datos al servidor.");
-        if (btn) btn.innerText = "🔬 Laboratorio";
-    }
+    contenedorPrincipal.scrollIntoView({ behavior: "smooth", block: "center" });
+  } catch (error) {
+    console.error("Error cargando laboratorio:", error);
+    alert("Hubo un error de conexión al pedirle los datos al servidor.");
+    if (btn) btn.innerText = "🔬 Laboratorio";
+  }
 }

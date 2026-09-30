@@ -254,7 +254,143 @@ document.addEventListener("DOMContentLoaded", () => {
   // 3. INICIALIZACIÓN Y EVENTOS
   // =================================================================================
 
-  initializeDashboard();
+  let authToken = sessionStorage.getItem("dpToken");
+  let sesionInfo = JSON.parse(sessionStorage.getItem("dpUser") || "null");
+
+  const loginModal = document.getElementById("login-modal");
+  const loginForm = document.getElementById("login-form");
+  const loginError = document.getElementById("login-error");
+  const terminosModal = document.getElementById("terminos-modal");
+  const terminosCheckbox = document.getElementById("terminos-checkbox");
+  const terminosContinuarBtn = document.getElementById(
+    "terminos-continuar-btn",
+  );
+  const logoutBtn = document.getElementById("logout-btn");
+
+  function authHeaders() {
+    return authToken ? { Authorization: "Bearer " + authToken } : {};
+  }
+
+  function aplicarRestriccionesPrestador() {
+    if (sesionInfo && sesionInfo.tipo === "prestador") {
+      if (filtroSeguridadBtn) filtroSeguridadBtn.classList.add("hidden");
+      const btnLab = document.getElementById("btn-laboratorio");
+      if (btnLab) btnLab.classList.add("hidden");
+    }
+  }
+
+  function iniciarAppLogueada() {
+    loginModal.classList.add("hidden");
+    if (logoutBtn) logoutBtn.classList.remove("hidden");
+    aplicarRestriccionesPrestador();
+    initializeDashboard();
+  }
+
+  function volverALogin(mensaje) {
+    authToken = null;
+    sesionInfo = null;
+    sessionStorage.removeItem("dpToken");
+    sessionStorage.removeItem("dpUser");
+    if (logoutBtn) logoutBtn.classList.add("hidden");
+    loginModal.classList.remove("hidden");
+    if (mensaje) {
+      loginError.textContent = mensaje;
+      loginError.classList.remove("hidden");
+    }
+  }
+
+  if (loginForm) {
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      loginError.classList.add("hidden");
+      const usuario = document.getElementById("login-usuario").value.trim();
+      const password = document.getElementById("login-password").value;
+      const submitBtn = document.getElementById("login-submit-btn");
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Ingresando...";
+      try {
+        const resp = await fetch("/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ usuario, password }),
+        });
+        const result = await resp.json();
+        if (!result.success) {
+          loginError.textContent =
+            result.message || "Usuario o contraseña incorrectos.";
+          loginError.classList.remove("hidden");
+          return;
+        }
+        authToken = result.token;
+        sesionInfo = { tipo: result.tipo, nombre: result.nombre };
+        sessionStorage.setItem("dpToken", authToken);
+        sessionStorage.setItem("dpUser", JSON.stringify(sesionInfo));
+
+        if (result.requiereTerminos) {
+          loginModal.classList.add("hidden");
+          terminosModal.classList.remove("hidden");
+          terminosModal.classList.add("flex");
+        } else {
+          iniciarAppLogueada();
+        }
+      } catch (err) {
+        loginError.textContent = "Error de conexión. Probá de nuevo.";
+        loginError.classList.remove("hidden");
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Ingresar";
+      }
+    });
+  }
+
+  if (terminosCheckbox) {
+    terminosCheckbox.addEventListener("change", () => {
+      terminosContinuarBtn.disabled = !terminosCheckbox.checked;
+      terminosContinuarBtn.classList.toggle(
+        "bg-gray-400",
+        !terminosCheckbox.checked,
+      );
+      terminosContinuarBtn.classList.toggle(
+        "cursor-not-allowed",
+        !terminosCheckbox.checked,
+      );
+      terminosContinuarBtn.classList.toggle(
+        "bg-blue-600",
+        terminosCheckbox.checked,
+      );
+      terminosContinuarBtn.classList.toggle(
+        "hover:bg-blue-700",
+        terminosCheckbox.checked,
+      );
+    });
+  }
+
+  if (terminosContinuarBtn) {
+    terminosContinuarBtn.addEventListener("click", async () => {
+      try {
+        await fetch("/aceptar-terminos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+        });
+      } catch (e) {
+        console.error("No se pudo registrar la aceptación de términos:", e);
+      }
+      terminosModal.classList.add("hidden");
+      terminosModal.classList.remove("flex");
+      iniciarAppLogueada();
+    });
+  }
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+      volverALogin();
+      location.reload();
+    });
+  }
+
+  if (authToken) {
+    iniciarAppLogueada();
+  }
 
   async function initializeDashboard() {
     updateDate();
@@ -437,10 +573,19 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const [dataResponse, indicadoresResponse, camposResponse] =
         await Promise.all([
-          fetch("/obtener-datos-completos"),
-          fetch("/obtener-indicadores-fijos"),
-          fetch("/obtener-campos"),
+          fetch("/obtener-datos-completos", { headers: authHeaders() }),
+          fetch("/obtener-indicadores-fijos", { headers: authHeaders() }),
+          fetch("/obtener-campos", { headers: authHeaders() }),
         ]);
+
+      if (
+        dataResponse.status === 401 ||
+        indicadoresResponse.status === 401 ||
+        camposResponse.status === 401
+      ) {
+        volverALogin("Tu sesión expiró. Iniciá sesión de nuevo.");
+        return;
+      }
 
       const rawData = await dataResponse.json();
 
@@ -507,7 +652,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       renderFixedIndicators(fixedIndicators);
-      
     } catch (error) {
       console.error("Error al cargar datos:", error);
       Swal.fire("Error", "No se pudieron cargar los datos.", "error");
@@ -1384,7 +1528,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const response = await fetch("/generar-informe", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
           data: currentFilteredData,
           userPrompt: userPrompt,
