@@ -304,12 +304,12 @@ async function cargarDatosDeSupabase() {
       break;
     }
 
-    // Mapeamos y descartamos la página cruda de inmediato, en vez de acumular todo el bruto
-    for (const row of data) {
+       for (const row of data) {
       const obj = {};
       for (const [col, header] of Object.entries(MAPEO_HISTORIAL_DP)) {
         if (row[col] !== null && row[col] !== undefined) obj[header] = row[col];
       }
+      if (obj["Sexo"]) obj["Sexo"] = normalizeSexo(obj["Sexo"]);
       obj["Poblacion"] = "General";
       procesadas.push(obj);
     }
@@ -354,6 +354,14 @@ function normalizeString(str) {
     .trim()
     .toLowerCase();
 }
+function normalizeSexo(valor) {
+  if (!valor) return valor;
+  const v = valor.toString().trim().toUpperCase();
+  if (v === "F" || v.startsWith("FEM")) return "Femenino";
+  if (v === "M" || v.startsWith("MASC")) return "Masculino";
+  return valor; // valor raro/no contemplado: lo dejamos tal cual, no lo inventamos
+}
+
 async function cargarTodosLosDatos() {
   try {
     const [datosSupabase, datosSheets] = await Promise.all([
@@ -435,7 +443,7 @@ async function cargarDatosDeGoogle() {
         const values = response.data.values;
         if (values && values.length > 0) {
           const headers = values[0];
-          const processedRows = values.slice(1).map((row) => {
+                    const processedRows = values.slice(1).map((row) => {
             const obj = {};
             headers.forEach((h, i) => {
               if (h && CAMPOS_PERMITIDOS.includes(h)) {
@@ -449,6 +457,7 @@ async function cargarDatosDeGoogle() {
               obj["Apellido y Nombre"] =
                 `${obj["Apellido"] || ""} ${obj["Nombre"] || ""}`.trim();
             }
+            if (obj["Sexo"]) obj["Sexo"] = normalizeSexo(obj["Sexo"]);
             obj["Poblacion"] = source.label;
             return obj;
           });
