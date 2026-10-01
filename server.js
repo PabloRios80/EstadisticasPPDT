@@ -101,6 +101,7 @@ const MAPEO_HISTORIAL_DP = {
   dni: "DNI",
   sexo: "Sexo",
   edad: "Edad",
+  fechax: "Fecha",
   apellido_y_nombre: "Apellido y Nombre",
   tipo: "Tipo",
   diabetes: "Diabetes",

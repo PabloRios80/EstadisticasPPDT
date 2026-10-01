@@ -865,6 +865,69 @@ document.addEventListener("DOMContentLoaded", () => {
         divRango.appendChild(inputDesde);
         divRango.appendChild(inputHasta);
         filtroDiv.appendChild(divRango);
+        filtroDiv.appendChild(divRango);
+      } else if (campo === "Fecha") {
+        // Atajo: elegir un mes completo
+        const mesesDisponibles = new Set();
+        allData.forEach((row) => {
+          const val = row.Fecha;
+          if (val && /^\d{4}-\d{2}-\d{2}/.test(val)) {
+            mesesDisponibles.add(val.substring(0, 7)); // "YYYY-MM"
+          }
+        });
+        const nombresMes = [
+          "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+          "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+        ];
+        const mesesOrdenados = Array.from(mesesDisponibles).sort();
+
+        const selectMes = document.createElement("select");
+        selectMes.id = "fecha-mes-rapido";
+        selectMes.classList.add(
+          "shadow", "appearance-none", "border", "rounded",
+          "w-full", "py-2", "px-3", "text-gray-700", "mb-2", "bg-gray-50",
+        );
+        const optVacia = document.createElement("option");
+        optVacia.value = "";
+        optVacia.textContent = "-- Elegir mes completo (opcional) --";
+        selectMes.appendChild(optVacia);
+        mesesOrdenados.forEach((ym) => {
+          const [anio, mes] = ym.split("-");
+          const opt = document.createElement("option");
+          opt.value = ym;
+          opt.textContent = `${nombresMes[parseInt(mes, 10) - 1]} ${anio}`;
+          selectMes.appendChild(opt);
+        });
+        filtroDiv.appendChild(selectMes);
+
+        const divRangoFecha = document.createElement("div");
+        divRangoFecha.classList.add("flex", "space-x-2", "mb-2");
+        const inputDesdeFecha = document.createElement("input");
+        inputDesdeFecha.type = "date";
+        inputDesdeFecha.id = "fecha-desde";
+        inputDesdeFecha.classList.add(
+          "shadow", "appearance-none", "border", "rounded",
+          "w-full", "py-2", "px-3", "text-gray-700",
+        );
+        const inputHastaFecha = document.createElement("input");
+        inputHastaFecha.type = "date";
+        inputHastaFecha.id = "fecha-hasta";
+        inputHastaFecha.classList.add(
+          "shadow", "appearance-none", "border", "rounded",
+          "w-full", "py-2", "px-3", "text-gray-700",
+        );
+        divRangoFecha.appendChild(inputDesdeFecha);
+        divRangoFecha.appendChild(inputHastaFecha);
+        filtroDiv.appendChild(divRangoFecha);
+
+        selectMes.addEventListener("change", () => {
+          if (!selectMes.value) return;
+          const [anio, mes] = selectMes.value.split("-");
+          const ultimoDia = new Date(parseInt(anio, 10), parseInt(mes, 10), 0).getDate();
+          inputDesdeFecha.value = `${anio}-${mes}-01`;
+          inputHastaFecha.value = `${anio}-${mes}-${String(ultimoDia).padStart(2, "0")}`;
+        });
+
       } else {
         // --- AQUÍ ESTÁ LA CORRECCIÓN DE LIMPIEZA ---
 
@@ -928,11 +991,17 @@ document.addEventListener("DOMContentLoaded", () => {
     );
     filterDivs.forEach((filterDiv) => {
       const field = filterDiv.id.replace("filtro-", "");
-      if (field === "Edad") {
+            if (field === "Edad") {
         const desde = parseFloat(document.getElementById("edad-desde").value);
         const hasta = parseFloat(document.getElementById("edad-hasta").value);
         if (!isNaN(desde) && !isNaN(hasta)) {
           filters.push({ field, operator: "range", value: { desde, hasta } });
+        }
+      } else if (field === "Fecha") {
+        const desde = document.getElementById("fecha-desde").value;
+        const hasta = document.getElementById("fecha-hasta").value;
+        if (desde && hasta) {
+          filters.push({ field, operator: "daterange", value: { desde, hasta } });
         }
       } else {
         const checkboxes = filterDiv.querySelectorAll(
@@ -952,13 +1021,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const filteredData = allData.filter((row) => {
       return filters.every((filter) => {
         // Lógica para Edad (se mantiene igual)
-        if (filter.field === "Edad") {
+                if (filter.field === "Edad") {
           // Aseguramos que sea número
           const edadDato = parseFloat(row.Edad);
           return (
             !isNaN(edadDato) &&
             edadDato >= filter.value.desde &&
             edadDato <= filter.value.hasta
+          );
+        }
+
+        if (filter.field === "Fecha") {
+          const fechaDato = row.Fecha;
+          // Comparación de strings "YYYY-MM-DD" funciona cronológicamente sin parsear
+          return (
+            !!fechaDato &&
+            fechaDato >= filter.value.desde &&
+            fechaDato <= filter.value.hasta
           );
         }
 
