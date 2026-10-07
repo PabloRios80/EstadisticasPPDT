@@ -309,7 +309,8 @@ async function cargarDatosDeSupabase() {
       for (const [col, header] of Object.entries(MAPEO_HISTORIAL_DP)) {
         if (row[col] !== null && row[col] !== undefined) obj[header] = row[col];
       }
-      if (obj["Sexo"]) obj["Sexo"] = normalizeSexo(obj["Sexo"]);
+      
+      normalizarObjetoClinico(obj);
       obj["Poblacion"] = "General";
       procesadas.push(obj);
     }
@@ -354,12 +355,76 @@ function normalizeString(str) {
     .trim()
     .toLowerCase();
 }
+// --- NORMALIZACIÓN DE TEXTO CLÍNICO (mayúsculas/acentos/género mezclados) ---
+const CANONICAL_TEXTO = {
+  patologico: "Patológico",
+  "no se realiza": "No se realiza",
+  "no aplica": "No aplica",
+  "no presenta": "No presenta",
+  presenta: "Presenta",
+  normal: "Normal",
+  "control normal": "Normal",
+  hipertension: "Hipertensión",
+  pendiente: "Pendiente",
+  positivo: "Positivo",
+  negativo: "Negativo",
+  fuma: "Fuma",
+  "no fuma": "No fuma",
+  indicada: "Indicada",
+  indicado: "Indicada",
+  "no indicada": "No indicada",
+  "no indicado": "No indicada",
+  alterada: "Alterada",
+  "se verifica": "Se verifica",
+  "no se verifica": "No se verifica",
+  riesgo: "Riesgo",
+  "riesgo alto": "Riesgo alto",
+  "riesgo bajo": "Riesgo bajo",
+  "riesgo medio": "Riesgo Moderado",
+  "riesgo moderado": "Riesgo Moderado",
+};
+
 function normalizeSexo(valor) {
   if (!valor) return valor;
   const v = valor.toString().trim().toUpperCase();
   if (v === "F" || v.startsWith("FEM")) return "Femenino";
   if (v === "M" || v.startsWith("MASC")) return "Masculino";
-  return valor; // valor raro/no contemplado: lo dejamos tal cual, no lo inventamos
+  return valor;
+}
+
+function normalizeTextoClinico(valor) {
+  if (typeof valor !== "string") return valor; // números u otros tipos: no se tocan
+  const limpio = valor.trim();
+  if (limpio === "" || limpio === "-") return ""; // "-" = sin dato
+  return CANONICAL_TEXTO[limpio.toLowerCase()] || limpio;
+}
+
+// En estos campos: Normal = No se verifica, Patológico = Se verifica,
+// No aplica = No se realiza (confirmado por Pablo)
+const CAMPOS_EQUIVALENCIA_VERIFICA = [
+  "EPOC", "ERC", "Osteoporosis", "Aspirina", "Aneurisma aorta", "Depresión",
+];
+
+function aplicarEquivalenciaVerifica(header, valor) {
+  if (!CAMPOS_EQUIVALENCIA_VERIFICA.includes(header)) return valor;
+  if (valor === "Normal") return "No se verifica";
+  if (valor === "Patológico") return "Se verifica";
+  if (valor === "No aplica") return "No se realiza";
+  return valor;
+}
+
+const CAMPOS_NO_NORMALIZAR = [
+  "DNI", "Edad", "Fecha", "Apellido y Nombre", "Apellido", "Nombre",
+  "Efector", "Tipo", "Marca temporal", "Link PDF", "Sexo", "Poblacion",
+];
+
+function normalizarObjetoClinico(obj) {
+  for (const key of Object.keys(obj)) {
+    if (CAMPOS_NO_NORMALIZAR.includes(key)) continue;
+    obj[key] = aplicarEquivalenciaVerifica(key, normalizeTextoClinico(obj[key]));
+  }
+  if (obj["Sexo"]) obj["Sexo"] = normalizeSexo(obj["Sexo"]);
+  return obj;
 }
 
 async function cargarTodosLosDatos() {
@@ -457,7 +522,7 @@ async function cargarDatosDeGoogle() {
               obj["Apellido y Nombre"] =
                 `${obj["Apellido"] || ""} ${obj["Nombre"] || ""}`.trim();
             }
-            if (obj["Sexo"]) obj["Sexo"] = normalizeSexo(obj["Sexo"]);
+            normalizarObjetoClinico(obj);
             obj["Poblacion"] = source.label;
             return obj;
           });
