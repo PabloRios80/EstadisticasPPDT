@@ -1077,6 +1077,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function exportarCruceAExcel() {
+    // Aplicar primero los filtros cargados en el panel, así el Excel
+    // siempre refleja lo que se configuró (no la vista anterior)
+    if (getFiltersFromUI().length > 0) applyFiltersAndRenderDashboard();
     if (!currentFilteredData || currentFilteredData.length === 0) {
       Swal.fire("Atención", "No hay datos filtrados para exportar.", "warning");
       return;
