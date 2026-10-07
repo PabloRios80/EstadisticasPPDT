@@ -420,6 +420,9 @@ function aplicarEquivalenciaVerifica(header, valor) {
 const EQUIVALENCIAS_POR_CAMPO = {
   "Cáncer cérvico uterino - HPV": { Negativo: "Normal", Positivo: "Patológico" },
   "Cáncer cérvico uterino - PAP": { "No se verifica": "Normal" },
+  "Próstata - PSA": { Negativo: "Normal", Positivo: "Patológico" },
+  "Abuso alcohol": { Abusa: "Abuso" },
+  "Seguridad vial": { "No se realiza": "No realiza" },
 };
 
 function aplicarEquivalenciasPorCampo(header, valor) {
