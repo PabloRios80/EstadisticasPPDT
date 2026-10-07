@@ -382,6 +382,9 @@ const CANONICAL_TEXTO = {
   "riesgo bajo": "Riesgo bajo",
   "riesgo medio": "Riesgo Moderado",
   "riesgo moderado": "Riesgo Moderado",
+  "obesidad morbida": "Obesidad Mórbida",
+  sobrepeso: "Sobrepeso",
+  "si realiza": "Sí realiza",
 };
 
 function normalizeSexo(valor) {
@@ -413,6 +416,17 @@ function aplicarEquivalenciaVerifica(header, valor) {
   return valor;
 }
 
+// Equivalencias específicas por campo (confirmadas por Pablo)
+const EQUIVALENCIAS_POR_CAMPO = {
+  "Cáncer cérvico uterino - HPV": { Negativo: "Normal", Positivo: "Patológico" },
+  "Cáncer cérvico uterino - PAP": { "No se verifica": "Normal" },
+};
+
+function aplicarEquivalenciasPorCampo(header, valor) {
+  const mapa = EQUIVALENCIAS_POR_CAMPO[header];
+  return mapa && mapa[valor] ? mapa[valor] : valor;
+}
+
 const CAMPOS_NO_NORMALIZAR = [
   "DNI", "Edad", "Fecha", "Apellido y Nombre", "Apellido", "Nombre",
   "Efector", "Tipo", "Marca temporal", "Link PDF", "Sexo", "Poblacion",
@@ -421,7 +435,10 @@ const CAMPOS_NO_NORMALIZAR = [
 function normalizarObjetoClinico(obj) {
   for (const key of Object.keys(obj)) {
     if (CAMPOS_NO_NORMALIZAR.includes(key)) continue;
-    obj[key] = aplicarEquivalenciaVerifica(key, normalizeTextoClinico(obj[key]));
+        obj[key] = aplicarEquivalenciasPorCampo(
+      key,
+      aplicarEquivalenciaVerifica(key, normalizeTextoClinico(obj[key])),
+    );
   }
   if (obj["Sexo"]) obj["Sexo"] = normalizeSexo(obj["Sexo"]);
   return obj;
