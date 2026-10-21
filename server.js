@@ -463,6 +463,15 @@ const CAMPOS_NO_NORMALIZAR = [
   "Efector", "Tipo", "Marca temporal", "Link PDF", "Sexo", "Poblacion",
 ];
 
+const EQUIVALENCIAS_EFECTOR = {
+  "iapos santa fe": "IAPOS ESP PREST",
+};
+function normalizarEfector(v) {
+  if (!v) return v;
+  const limpio = v.toString().trim();
+  return EQUIVALENCIAS_EFECTOR[limpio.toLowerCase()] || limpio;
+}
+
 function normalizarObjetoClinico(obj) {
   for (const key of Object.keys(obj)) {
     if (CAMPOS_NO_NORMALIZAR.includes(key)) continue;
@@ -472,6 +481,7 @@ function normalizarObjetoClinico(obj) {
     );
   }
   if (obj["Sexo"]) obj["Sexo"] = normalizeSexo(obj["Sexo"]);
+  if (obj["Efector"]) obj["Efector"] = normalizarEfector(obj["Efector"]);
   return obj;
 }
 
