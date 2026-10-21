@@ -139,6 +139,23 @@ const MAPEO_HISTORIAL_DP = {
   sindrome_metabolico: "Síndrome Metabólico",
   consumo_sustancias: "Consumo de sustancias",
   marca_temporal: "Marca temporal",
+  alimentacion_saludable: "Alimentación saludable",
+  ef: "Examen físico",
+  talla: "Talla",
+  salud_ocular: "Salud ocular",
+  audicion: "Audición",
+  salud_cardiovascular: "Salud cardiovascular",
+  educacion_sexual: "Educación sexual",
+  salud_mental_integral: "Salud mental integral",
+  pesquisa_dislipemia: "Pesquisa dislipemia y síndrome metabólico",
+  escoliosis: "Escoliosis",
+  cancer_cervico_uterino: "Cáncer cérvico uterino - Vacuna VPH",
+  cancer_piel: "Cáncer de piel",
+  desarrollo_escolar: "Desarrollo escolar y aprendizaje",
+  uso_pantallas: "Uso de pantallas",
+  horas_pantallas: "Horas diarias de pantallas",
+  control_vacunas: "Control de vacunas de calendario",
+  control_odontologico_ninos: "Control Odontológico - Niños",
   link: "Link PDF",
 };
 
@@ -304,13 +321,18 @@ async function cargarDatosDeSupabase() {
       break;
     }
 
-       for (const row of data) {
+      for (const row of data) {
       const obj = {};
       for (const [col, header] of Object.entries(MAPEO_HISTORIAL_DP)) {
         if (row[col] !== null && row[col] !== undefined) obj[header] = row[col];
       }
       
-      normalizarObjetoClinico(obj);
+            normalizarObjetoClinico(obj);
+      if (obj["Horas diarias de pantallas"] !== undefined) {
+        obj["Horas diarias de pantallas"] = bucketHorasPantallas(
+          obj["Horas diarias de pantallas"],
+        );
+      }
       obj["Poblacion"] = "General";
       procesadas.push(obj);
     }
@@ -385,6 +407,12 @@ const CANONICAL_TEXTO = {
   "obesidad morbida": "Obesidad Mórbida",
   sobrepeso: "Sobrepeso",
   "si realiza": "Sí realiza",
+  si: "Sí", "no": "No",
+  consejeria: "Consejería",
+  "derivacion a especialista": "Derivación a especialista",
+  "con observaciones": "Con Observaciones",
+  "alto riesgo": "Riesgo alto",
+  "riesgo modereado": "Riesgo Moderado",
 };
 
 function normalizeSexo(valor) {
@@ -445,6 +473,27 @@ function normalizarObjetoClinico(obj) {
   }
   if (obj["Sexo"]) obj["Sexo"] = normalizeSexo(obj["Sexo"]);
   return obj;
+}
+
+const NUM_PALABRAS = { cero:0, un:1, una:1, uno:1, dos:2, tres:3, cuatro:4, cinco:5,
+  seis:6, siete:7, ocho:8, nueve:9, diez:10, once:11, doce:12, trece:13, catorce:14,
+  quince:15, dieciseis:16 };
+function bucketHorasPantallas(raw) {
+  if (raw === null || raw === undefined) return "";
+  const s = raw.toString().toLowerCase().normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "").trim();
+  if (!s || s === "-" || s === "." || s.startsWith("#")) return "";
+  let n = null;
+  const m = s.match(/\d+([.,]\d+)?/);
+  if (m) n = parseFloat(m[0].replace(",", "."));
+  else for (const [w, v] of Object.entries(NUM_PALABRAS))
+    if (new RegExp("\\b" + w + "\\b").test(s)) { n = v; break; }
+  if (n === null || n > 24) return "";
+  if (/mas de/.test(s)) n += 0.5;
+  if (n <= 2) return "Hasta 2 h";
+  if (n <= 4) return "Más de 2 y hasta 4 h";
+  if (n <= 6) return "Más de 4 y hasta 6 h";
+  return "Más de 6 h";
 }
 
 async function cargarTodosLosDatos() {
@@ -572,10 +621,13 @@ async function cargarDatosDeGoogle() {
 function preCalcularTodo() {
   if (!datosEnMemoria || datosEnMemoria.length === 0) return;
 
-  const primerRegistro = datosEnMemoria[0];
-  camposCache = Object.keys(primerRegistro).filter(
-    (c) => c !== "Poblacion" && c !== "Apellido y Nombre",
-  );
+  const claves = new Set();
+  for (const r of datosEnMemoria) {
+    if (r.Poblacion === "General") {
+      for (const k of Object.keys(r)) claves.add(k);
+    }
+  }
+  camposCache = [...claves].filter((c) => c !== "Poblacion");
 
   indicadoresCache = calcularIndicadoresInterno(datosEnMemoria);
   console.log("🚀 [3/3] Cachés generadas. Sistema listo.");

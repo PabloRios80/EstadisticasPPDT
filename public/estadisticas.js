@@ -169,8 +169,49 @@ document.addEventListener("DOMContentLoaded", () => {
         },
       ],
     },
+        {
+      category: "Salud Pediátrica",
+      icon: "child",
+      color: "orange-600",
+      subtopics: [
+        { name: "Sin alimentación saludable", column: "Alimentación saludable", value: "No" },
+        { name: "Examen físico con observaciones", column: "Examen físico", value: "Con Observaciones" },
+        { name: "Talla", subtopics: [
+          { name: "Baja", column: "Talla", value: "Baja" },
+          { name: "Alta", column: "Talla", value: "Alta" } ] },
+        { name: "Salud ocular alterada", column: "Salud ocular", value: "Alterada" },
+        { name: "Audición alterada", column: "Audición", value: "Alterada" },
+        { name: "Salud cardiovascular con observaciones", column: "Salud cardiovascular", value: "Con Observaciones" },
+        { name: "Educación sexual", subtopics: [
+          { name: "Consejería realizada", column: "Educación sexual", value: "Consejería" },
+          { name: "Con observaciones", column: "Educación sexual", value: "Con Observaciones" } ] },
+        { name: "Salud mental integral", subtopics: [
+          { name: "Consejería realizada", column: "Salud mental integral", value: "Consejería" },
+          { name: "Con observaciones", column: "Salud mental integral", value: "Con Observaciones" } ] },
+        { name: "Consumo de sustancias problemáticas", column: "Consumo de sustancias", value: "Presenta" },
+        { name: "Dislipemia / síndrome metabólico", column: "Pesquisa dislipemia y síndrome metabólico", value: "Presenta" },
+        { name: "Escoliosis", column: "Escoliosis", value: "Presenta" },
+        { name: "Sin vacuna VPH", column: "Cáncer cérvico uterino - Vacuna VPH", value: "No tiene vacuna VPH" },
+        { name: "Cáncer de piel", subtopics: [
+          { name: "Consejería", column: "Cáncer de piel", value: "Consejería" },
+          { name: "Derivación a especialista", column: "Cáncer de piel", value: "Derivación a especialista" } ] },
+        { name: "Desarrollo escolar no acorde a edad", column: "Desarrollo escolar y aprendizaje", value: "No acorde a edad" },
+        { name: "Uso de pantallas", subtopics: [
+          { name: "Hasta 2 h", column: "Horas diarias de pantallas", value: "Hasta 2 h" },
+          { name: "Más de 2 y hasta 4 h", column: "Horas diarias de pantallas", value: "Más de 2 y hasta 4 h" },
+          { name: "Más de 4 y hasta 6 h", column: "Horas diarias de pantallas", value: "Más de 4 y hasta 6 h" },
+          { name: "Más de 6 h", column: "Horas diarias de pantallas", value: "Más de 6 h" } ] },
+        { name: "Vacunas de calendario incompletas", column: "Control de vacunas de calendario", value: "Incompleto" },
+        { name: "Control odontológico pediátrico", subtopics: [
+          { name: "Riesgo alto", column: "Control Odontológico - Niños", value: "Riesgo Alto" },
+          { name: "Riesgo moderado", column: "Control Odontológico - Niños", value: "Riesgo Moderado" },
+          { name: "Riesgo bajo", column: "Control Odontológico - Niños", value: "Riesgo Bajo" } ] },
+      ],
+    },
   ];
 
+
+  
   const MODAL_CONTENT = {
     "indicador-casos": {
       titulo: "Total de Casos (Días Preventivos)",
